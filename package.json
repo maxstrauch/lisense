@@ -1,0 +1,37 @@
+{
+  "name": "lisense",
+  "version": "1.0.0",
+  "description": "A simple but working CLI tool to extract NPM package licenses reliably",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maxstrauch/lisense.git"
+  },
+  "keywords": [
+    "npm",
+    "license",
+    "extractor",
+    "tool",
+    "cli"
+  ],
+  "bin": {
+    "lisense": "./index.js"
+  },
+  "engines": {
+    "node": ">=10.0.0"
+  },
+  "author": "maxstrauch",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/maxstrauch/lisense/issues"
+  },
+  "homepage": "https://github.com/maxstrauch/lisense#readme",
+  "dependencies": {
+    "chalk": "^3.0.0",
+    "commander": "^4.1.1",
+    "debug": "^4.1.1"
+  }
+}
