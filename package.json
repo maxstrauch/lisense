@@ -33,5 +33,9 @@
     "chalk": "^3.0.0",
     "commander": "^4.1.1",
     "debug": "^4.1.1"
+  },
+  "devDependencies": {
+    "jest": "^25.1.0",
+    "mock-fs": "^4.10.4"
   }
 }
