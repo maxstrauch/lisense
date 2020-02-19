@@ -40,7 +40,7 @@ async function main() {
     let [ modulesMap, modules ] = scanNodeModules(program.dir);
 
     if (program.prod) {
-        modules = await filterModulesByProd(modules);
+        modules = await filterModulesByProd(program.dir, modules);
     }
 
     const [ mods, modsWithout ] = extractLicenses(modulesMap, modules);

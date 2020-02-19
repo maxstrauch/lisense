@@ -18,9 +18,14 @@ function getFiles(dir, filterFun) {
   return f;
 }
 
-function system(cmd, args) {
+function system(cmd, args, opts) {
 
-  const cmdProc = spawn(cmd, args, { cwd: process.cwd() });
+  const cmdProc = spawn(cmd, args, { 
+      ...{
+        cwd: process.cwd()
+      },
+      ...(opts || {})
+   });
 
   let stdout = '';
   cmdProc.stdout.on('data', (data) => {
@@ -34,6 +39,10 @@ function system(cmd, args) {
 
   return new Promise((res, rej) => {
     cmdProc.on('close', (code) => {
+
+        console.log(stdout);
+
+        
       res({
         code,
         stdout,
@@ -74,8 +83,8 @@ function repoFragmentToUrl(fragment) {
   return null;
 }
 
-async function getProdPackages() {
-  const data = await system('npm', ['list', '-prod']);
+async function getProdPackages(baseDir) {
+  const data = await system('npm', ['list', '-prod'], { cwd: baseDir });
 
   const pkgsProd = data.stdout.split('\n').map((ln) => {
     ln = ln.trim();
@@ -219,9 +228,9 @@ function scanNodeModules(baseDir) {
 }
 
 
-async function filterModulesByProd(modules) {
+async function filterModulesByProd(baseDir, modules) {
 
-    const prodPackages = await getProdPackages();
+    const prodPackages = await getProdPackages(baseDir);
     console.log(`${prodPackages.length} PROD node_modules found!`);
   
     // Reduce the set
@@ -294,7 +303,7 @@ function extractLicenses(moduleMap, modules) {
           originalPaths: moduleMap[modules[i]],
           repoBaseUrl: sourceBase,
         });
-  
+        
       }
   
     }
