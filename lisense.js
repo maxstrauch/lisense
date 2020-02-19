@@ -109,7 +109,7 @@ async function getProdPackages(baseDir, pedantic) {
     
             visited.push(pkgs[i]);
             pending.push(path.resolve(relPath, 'node_modules', pkgs[i]));
-            pending.push(path.resolve('./', 'node_modules', pkgs[i]));
+            pending.push(path.resolve(baseDir, 'node_modules', pkgs[i]));
           }
         } else {
           // console.log("--> No dependencies for:", pkgJsonPath);
@@ -256,7 +256,7 @@ function scanNodeModules(baseDir) {
 
     const moduleMap = {};
 
-    const basePath = path.resolve(baseDir, './node_modules/');
+    const basePath = path.resolve(baseDir, '/node_modules/');
     log(`Searching for node_modules in: ${basePath}`);
 
     
@@ -402,7 +402,7 @@ function writeJsonResultFile(filename, modules) {
 }
 
 function writeCsvResultFile(basePath, filename, modulesWithLicenses) {
-    const pkgJson = JSON.parse(fs.readFileSync("./package.json").toString());
+    const pkgJson = JSON.parse(fs.readFileSync(path.resolve(basePath, "package.json")).toString());
 
     let csv = `"module name","licenses","repository","licenseUrl","parents"\n`;
     for (let i = 0; i < modulesWithLicenses.length; i++) {
