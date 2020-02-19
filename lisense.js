@@ -27,26 +27,27 @@ function system(cmd, args, opts) {
       ...(opts || {})
    });
 
+   let combined = '';
+
   let stdout = '';
   cmdProc.stdout.on('data', (data) => {
     stdout += data.toString();
+    combined += data.toString();
   });
 
   let stderr = '';
   cmdProc.stderr.on('data', (data) => {
     stderr += data.toString();
+    combined += data.toString();
   });
 
   return new Promise((res, rej) => {
     cmdProc.on('close', (code) => {
-
-        console.log(stdout);
-
-        
       res({
         code,
-        stdout,
-        stderr
+        stdout: stdout || '',
+        stderr: stderr || '',
+        out: combined || '',
       });
     })
   });
@@ -83,7 +84,81 @@ function repoFragmentToUrl(fragment) {
   return null;
 }
 
-async function getProdPackages(baseDir) {
+
+
+async function getProdPackages(baseDir, pedantic) {
+    const log = debug('getProdPackages');
+
+    const pending = [baseDir];
+    const visited = [];
+    
+    do {
+      const relPath = pending.pop();
+      const pkgJsonPath = path.resolve(relPath, 'package.json');
+    
+      try {
+        const pkgJson = JSON.parse(fs.readFileSync(pkgJsonPath).toString());
+    
+        if (pkgJson.dependencies) {
+          const pkgs = Object.getOwnPropertyNames(pkgJson.dependencies);
+    
+          for (let i = 0; i < pkgs.length; i++) {
+            if (visited.includes(pkgs[i])) {
+              continue; // Already visited!
+            }
+    
+            visited.push(pkgs[i]);
+            pending.push(path.resolve(relPath, 'node_modules', pkgs[i]));
+            pending.push(path.resolve('./', 'node_modules', pkgs[i]));
+          }
+        } else {
+          // console.log("--> No dependencies for:", pkgJsonPath);
+        }
+      } catch (ex) {
+        // Ignore
+        // console.log(ex);
+      }
+    } while (pending.length > 0);
+
+
+    if (pedantic === true) {
+
+        const packagesViaNpm = await getProdPackagesViaNpm(baseDir);
+
+        if (packagesViaNpm.length !== visited.length) {
+            console.error(`Error: npm found ${packagesViaNpm.length} vs. ${visited.length} by lisense!`);
+        } else {
+            log(`Package count has been successfully checked against NPM!`);
+        }
+
+    }
+    
+    log(`Found ${visited.length} packages for prod!`);
+    
+
+    return visited;
+}
+
+/*
+
+
+Alternative implementation which uses npm and parses the output:
+-----
+
+*/
+async function getProdPackagesViaNpm(baseDir) {
+    const log = debug('getProdPackagesViaNpm');
+
+    const whichNpm = await system('which', ['npm']);
+
+    if (whichNpm.code !== 0 || whichNpm.stdout.indexOf('npm') < 1) {
+        
+        log(`No executable "npm" installed on this system!`);
+        return [];
+
+    }
+
+
   const data = await system('npm', ['list', '-prod'], { cwd: baseDir });
 
   const pkgsProd = data.stdout.split('\n').map((ln) => {
@@ -116,6 +191,7 @@ async function getProdPackages(baseDir) {
 
   return [...new Set(pkgsProd)];
 }
+
 
 // ---
 
@@ -228,10 +304,11 @@ function scanNodeModules(baseDir) {
 }
 
 
-async function filterModulesByProd(baseDir, modules) {
+async function filterModulesByProd(baseDir, modules, pedantic) {
+    const log = debug('filterModulesByProd');
 
-    const prodPackages = await getProdPackages(baseDir);
-    console.log(`${prodPackages.length} PROD node_modules found!`);
+    const prodPackages = await getProdPackages(baseDir, pedantic);
+    log(`${prodPackages.length} PROD node_modules found!`);
   
     // Reduce the set
     const tmpSelected = [];
@@ -239,12 +316,12 @@ async function filterModulesByProd(baseDir, modules) {
       if (modules.includes(prodPackages[i])) {
         tmpSelected.push(prodPackages[i]);
       } else {
-        console.log("Could not find module:", prodPackages[i]);
+        log("Could not find module:", prodPackages[i]);
       }
     }
   
     if (prodPackages.length !== tmpSelected.length) {
-      console.log("ERROR: Numer of packages differs: ", prodPackages.length, tmpSelected.length);
+      console.error("ERROR: Numer of packages differs: ", prodPackages.length, tmpSelected.length);
       process.exit(1);
     }
   

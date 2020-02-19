@@ -26,6 +26,7 @@ program
   .option('-r, --report <mode>', 'Generates a report on stderr with one of the modes: none (default), short, long', 'none')
   .option('-l, --licenses', 'Print a list of used licenses')
   .option('-z, --fail-on-missing', 'Fails the application with exit code 3 iff there is at least one node_module which cannot be inspected')
+  .option('--pedantic', 'Checks at some places if data can be confirmed from an other source (e.g. NPM)')
  
 program.parse(process.argv);
 
@@ -40,7 +41,7 @@ async function main() {
     let [ modulesMap, modules ] = scanNodeModules(program.dir);
 
     if (program.prod) {
-        modules = await filterModulesByProd(program.dir, modules);
+        modules = await filterModulesByProd(program.dir, modules, program.pedantic);
     }
 
     const [ mods, modsWithout ] = extractLicenses(modulesMap, modules);
