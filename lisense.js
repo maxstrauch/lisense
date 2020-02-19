@@ -256,7 +256,7 @@ function scanNodeModules(baseDir) {
 
     const moduleMap = {};
 
-    const basePath = path.resolve(baseDir, '/node_modules/');
+    const basePath = path.resolve(baseDir, 'node_modules/');
     log(`Searching for node_modules in: ${basePath}`);
 
     
@@ -401,8 +401,21 @@ function writeJsonResultFile(filename, modules) {
     fs.writeFileSync(filename, JSON.stringify(modules, null, 4));
 }
 
+function getPackageJsonOfTarget(basePath) {
+    const log = debug('app:getPackageJsonOfTarget');
+    try {
+        const pkgJson = JSON.parse(fs.readFileSync(path.resolve(basePath, "package.json")).toString());
+        return pkgJson;
+    } catch (ex) {
+        log(`Failed to get package.json of target:`, ex);
+
+        console.error("Error: cannot read package.json in dir " + basePath + "! No node package?");
+        process.exit(1);
+    }
+}
+
 function writeCsvResultFile(basePath, filename, modulesWithLicenses) {
-    const pkgJson = JSON.parse(fs.readFileSync(path.resolve(basePath, "package.json")).toString());
+    const pkgJson = getPackageJsonOfTarget(basePath);
 
     let csv = `"module name","licenses","repository","licenseUrl","parents"\n`;
     for (let i = 0; i < modulesWithLicenses.length; i++) {
@@ -473,5 +486,6 @@ module.exports = {
     writeCsvResultFile,
     getDistinctLicenses,
     printReport,
-    isValidStartDir
+    isValidStartDir,
+    getPackageJsonOfTarget
 };

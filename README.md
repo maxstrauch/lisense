@@ -19,7 +19,8 @@ So `lisense` was born. See the CLI interface:
 
     Options:
     -V, --version               output the version number
-    -d, --dir <directory>       The directory to use as base directory to start scanning (default: CWD)
+    -d, --dir <directory>       The directory to use as base directory to start scanning (default:
+                                "/Users/maximilianstrauch/Documents/Projekte/lisense")
     -p, --prod                  Only inspect packages used for prod deployment (no devDependencies) (default: false)
     -v, --verbose               Enable verbose program output (default: false)
     -c, --csv <file>            CSV output of results (default: false)
@@ -28,6 +29,7 @@ So `lisense` was born. See the CLI interface:
     -r, --report <mode>         Generates a report on stderr with one of the modes: none (default), short, long (default: "none")
     -l, --licenses              Print a list of used licenses
     -z, --fail-on-missing       Fails the application with exit code 3 iff there is at least one node_module which cannot be inspected
+    --pedantic                  Checks at some places if data can be confirmed from an other source (e.g. NPM)
     -h, --help                  output usage information
 
 

@@ -11,7 +11,8 @@ const {
     writeJsonResultFile, 
     writeCsvResultFile, 
     getDistinctLicenses, 
-    printReport 
+    printReport,
+    getPackageJsonOfTarget
 } = require('./lisense');
 const packageJson = require('./package.json');
  
@@ -33,9 +34,11 @@ program.parse(process.argv);
 program.verbose && debug.enable('*');
 
 async function main() {
-    console.log(`Inspecting node_modules ...`);
 
     isValidStartDir(program.dir);
+
+    const pkgJson = getPackageJsonOfTarget(program.dir);
+    console.log(`Inspecting node_modules of ${pkgJson.name}@${pkgJson.version} ...`);
 
     // Get all node modules relative to the given root dir
     let [ modulesMap, modules ] = scanNodeModules(program.dir);
