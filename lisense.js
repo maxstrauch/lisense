@@ -4,8 +4,27 @@ const { spawn } = require('child_process');
 const debug = require('debug');
 const chalk = require('chalk');
 
+/**
+ * It is possible to make a "native" node call:
+ *   fs.readdirSync(dir, { withFileTypes: true })
+ * BUT: somewhere between Node 10.0.0 and Node 10.18.0 this
+ * feature was added; if the node version is smaller,
+ * the function getFiles() will fail, because readdirSync returns
+ * only a string array ...
+ * 
+ * This function wraps this behaviour.
+ */
+function readdirSyncWithFileTypes(dir) {
+    const files = fs.readdirSync(dir);
+    return files.map((fileName) => {
+        const obj = fs.statSync(path.resolve(dir, fileName));
+        obj.name = fileName;
+        return obj;
+    });
+}
+
 function getFiles(dir, filterFun) {
-  const dirents = fs.readdirSync(dir, { withFileTypes: true });
+  const dirents = readdirSyncWithFileTypes(dir);
   let f = [];
   for (const dirent of dirents) {
     const full = path.resolve(dir, dirent.name);
