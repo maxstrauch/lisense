@@ -174,11 +174,11 @@ function scanNodeModules(baseDir) {
     const basePath = path.resolve(baseDir, './node_modules/');
     log(`Searching for node_modules in: ${basePath}`);
 
+    
     getFiles(basePath, (file) => {
-      return file.indexOf('package.json') > -1 || file.indexOf('LICENSE') > -1;
-    }).forEach((fileName) => {
-  
-  
+      return file.indexOf('package.json') > -1 || file.toLowerCase().indexOf('license') > -1;
+    })
+    .forEach((fileName) => {
       const index = fileName.lastIndexOf('node_modules/') + 13;
       let followingSlash = fileName.indexOf('/', index + 1);
       let pkgName = fileName.substring(index, followingSlash);
@@ -188,7 +188,6 @@ function scanNodeModules(baseDir) {
         pkgName = fileName.substring(index, followingSlash);
       }
   
-  
       if (!(pkgName in moduleMap)) {
         moduleMap[pkgName] = [];
       }
@@ -197,8 +196,24 @@ function scanNodeModules(baseDir) {
   
   
     let modules = Object.getOwnPropertyNames(moduleMap);
-    // console.log(`${modules.length} node_modules found!`);
-    // modules.sort();
+
+    // Sort all resulting files in a way, that the shortest path per module
+    // to a package.json is taken as the "root" package.json
+    // ---
+    const _sortByLen = (a, b) => {
+        return `${a}`.length-`${b}`.length;
+    };
+
+    for (let i = 0; i < modules.length; i++) {
+        const arr = moduleMap[modules[i]].sort(_sortByLen);
+        
+        const selected = [
+            arr.find((el) => (el.indexOf('package.json') > -1)),
+            arr.find((el) => (el.toLowerCase().indexOf('license') > -1))
+        ].filter((el) => (!!el));
+
+        moduleMap[modules[i]] = selected;
+    }
 
     return [ moduleMap, modules ];
 }
