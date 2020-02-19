@@ -52,7 +52,7 @@ async function main() {
     if (modsWithout.length > 0) {
         console.error(`${chalk.yellow("WARNING:")} Found ${modsWithout.length} modules which could not be inspected:`);
         modsWithout.forEach((mod) => {
-            console.error(` - ${mod}`);
+            console.error(mod);
         });
     }
 

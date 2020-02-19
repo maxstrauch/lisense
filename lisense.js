@@ -328,6 +328,44 @@ async function filterModulesByProd(baseDir, modules, pedantic) {
     return tmpSelected;
 }
 
+function detectLicenseFromFile(content) {
+    const log = debug('detectLicenseFromFile');
+    log('File:', content);
+
+    content = content.toLowerCase();
+
+    if (content.indexOf('mit license') > -1) {
+        return 'MIT';
+    } else if (content.indexOf('gpl') > -1) {
+        return 'GPL';
+    } else {
+        // ...
+        // TODO: extend this function
+    }
+
+    return 'UNKNOWN';
+}
+
+function tryFallbackLicenseDetection(modPkgJsonPath, paths) {
+    const log = debug('tryFallbackLicenseDetection');
+
+    log(`Fallback:\n  modPkgJsonPath=${modPkgJsonPath}\n  paths=${JSON.stringify(paths)}`);
+
+    const licenseFile = (paths || []).find((el) => (el.toLowerCase().indexOf('license') > -1));
+    if (licenseFile) {
+        log(`Found license file: ${licenseFile}`);
+
+        try {
+            return detectLicenseFromFile(fs.readFileSync(licenseFile).toString());
+        } catch(ex) {
+            log(`Error: cannot read license file:`, ex);
+        }
+    }
+
+    // TODO: add e.g. search in remote dir etc.
+    return 'UNKNOWN';
+}
+
 function extractLicenses(moduleMap, modules) {
     const log = debug(`app:extractLicenses`);
 
@@ -335,9 +373,9 @@ function extractLicenses(moduleMap, modules) {
     const modulesWithoutLicenses = [];
   
     for (let i = 0; i < modules.length; i++) {
-      const module = moduleMap[modules[i]];
+      const _module = moduleMap[modules[i]];
   
-      const pkgJsonPath = module.find((p) => (p.indexOf('package.json') > -1));
+      const pkgJsonPath = _module.find((p) => (p.indexOf('package.json') > -1));
   
       let pkgJson = {};
       try {
@@ -352,16 +390,26 @@ function extractLicenses(moduleMap, modules) {
       let licenseFileUrl = null;
   
       if (!sourceBase) {
-        // console.log("ERROR: cannot find repo url for: ", pkgJsonPath)
-  
+        log("ERROR: cannot find repo url for: ", pkgJsonPath)
       } else {
-        const licenseFilePath = module.find((p) => (p.toLowerCase().indexOf('license') > -1));
+        const licenseFilePath = _module.find((p) => (p.toLowerCase().indexOf('license') > -1));
         const licnseFileName = path.basename(licenseFilePath || '');
         licenseFileUrl = `${sourceBase}/blob/master/${licnseFileName}`;
       }
+
+      if (!pkgJson.license && !pkgJson.licenses) {
+        pkgJson.license = tryFallbackLicenseDetection(pkgJsonPath, _module);
+      }
+
   
       if (!pkgJson.license && !pkgJson.licenses) {
-        modulesWithoutLicenses.push(pkgJsonPath);
+        
+        modulesWithoutLicenses.push({
+            name: modules[i],
+            version: pkgJson.version || null,
+            localPath: pkgJsonPath,
+        });
+
       } else {
   
         if (pkgJson.licenses && Array.isArray(pkgJson.licenses)) {
