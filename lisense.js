@@ -9,7 +9,7 @@ const chalk = require('chalk');
  *   fs.readdirSync(dir, { withFileTypes: true })
  * BUT: somewhere between Node 10.0.0 and Node 10.18.0 this
  * feature was added; if the node version is smaller,
- * the function getFiles() will fail, because readdirSync returns
+ * the function getFilesRec() will fail, because readdirSync returns
  * only a string array ...
  * 
  * This function wraps this behaviour.
@@ -23,13 +23,13 @@ function readdirSyncWithFileTypes(dir) {
     });
 }
 
-function getFiles(dir, filterFun) {
+function getFilesRec(dir, filterFun) {
   const dirents = readdirSyncWithFileTypes(dir);
   let f = [];
   for (const dirent of dirents) {
     const full = path.resolve(dir, dirent.name);
     if (dirent.isDirectory()) {
-      f = f.concat(getFiles(full, filterFun));
+      f = f.concat(getFilesRec(full, filterFun));
     } else if ((filterFun ? filterFun(full) : true)) {
       f.push(full);
     }
@@ -64,9 +64,9 @@ function system(cmd, args, opts) {
     cmdProc.on('close', (code) => {
       res({
         code,
-        stdout: stdout || '',
-        stderr: stderr || '',
-        out: combined || '',
+        stdout: stdout,
+        stderr: stderr,
+        out: combined,
       });
     })
   });
@@ -279,7 +279,7 @@ function scanNodeModules(baseDir) {
     log(`Searching for node_modules in: ${basePath}`);
 
     
-    getFiles(basePath, (file) => {
+    getFilesRec(basePath, (file) => {
       return file.indexOf('package.json') > -1 || file.toLowerCase().indexOf('license') > -1;
     })
     .forEach((fileName) => {
@@ -554,5 +554,12 @@ module.exports = {
     getDistinctLicenses,
     printReport,
     isValidStartDir,
-    getPackageJsonOfTarget
+    getPackageJsonOfTarget,
+
+
+    readdirSyncWithFileTypes,
+    getFilesRec,
+    system,
+    repoFragmentToUrl,
+    getProdPackages,
 };
