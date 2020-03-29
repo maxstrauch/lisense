@@ -4,7 +4,7 @@
   "description": "A simple but working CLI tool to extract NPM package licenses reliably",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest --coverage --collectCoverageFrom \"(index|lisense).js\" --coverageDirectory \"./coverage/\" --coverageReporters lcov"
   },
   "repository": {
     "type": "git",
