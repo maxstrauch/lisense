@@ -275,21 +275,22 @@ function scanNodeModules(baseDir) {
 
     const moduleMap = {};
 
-    const basePath = path.resolve(baseDir, 'node_modules/');
+    const basePath = path.resolve(baseDir, 'node_modules'+path.sep);
     log(`Searching for node_modules in: ${basePath}`);
 
-    
+
     getFiles(basePath, (file) => {
       return file.indexOf('package.json') > -1 || file.toLowerCase().indexOf('license') > -1;
     })
     .forEach((fileName) => {
-      const index = fileName.lastIndexOf('node_modules/') + 13;
-      let followingSlash = fileName.indexOf('/', index + 1);
+      const index = fileName.lastIndexOf('node_modules'+path.sep) + 13;
+      let followingSlash = fileName.indexOf(path.sep, index + 1);
       let pkgName = fileName.substring(index, followingSlash);
-  
+      
       if (pkgName.startsWith('@')) {
-        followingSlash = fileName.indexOf('/', index + 1 + pkgName.length);
+        followingSlash = fileName.indexOf(path.sep, index + 1 + pkgName.length);
         pkgName = fileName.substring(index, followingSlash);
+        pkgName = pkgName.replace(path.sep,'/');
       }
   
       if (!(pkgName in moduleMap)) {
@@ -340,7 +341,7 @@ async function filterModulesByProd(baseDir, modules, pedantic) {
     }
   
     if (prodPackages.length !== tmpSelected.length) {
-      console.error("ERROR: Numer of packages differs: ", prodPackages.length, tmpSelected.length);
+      console.error("ERROR: Number of packages differs: ", prodPackages.length, tmpSelected.length);
       process.exit(1);
     }
   
