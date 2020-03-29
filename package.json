@@ -36,6 +36,7 @@
   },
   "devDependencies": {
     "jest": "^25.1.0",
-    "mock-fs": "^4.10.4"
+    "mock-fs": "^4.10.4",
+    "minimist": ">=1.2.2"
   }
 }
