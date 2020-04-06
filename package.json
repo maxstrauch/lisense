@@ -35,7 +35,7 @@
     "debug": "^4.1.1"
   },
   "devDependencies": {
-    "jest": "^25.1.0",
-    "mock-fs": "^4.10.4"
+    "jest": "^25.2.7",
+    "mock-fs": "^4.11.0"
   }
 }
