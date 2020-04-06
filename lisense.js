@@ -217,57 +217,41 @@ async function getProdPackagesViaNpm(baseDir) {
 function isValidStartDir(baseDir) {
     const log = debug('app:isValidStartDir');
 
-    log(`Testing base path: ${baseDir} ...`);
     try {
-        if (!fs.statSync(baseDir).isDirectory()) {
-            throw new Error();
+        log(`Testing base path: ${baseDir} ...`);
+        const statDir = fs.statSync(baseDir);
+        if (!statDir || !statDir.isDirectory()) {
+            return false;
         }
-    } catch (_) {
-        console.error(`${chalk.red("Error:")} given base path not existing!`);
-        log(`Error details:`, _);
-        process.exit(1);
-    }
 
-    const pkgJsonPath = path.resolve(baseDir, 'package.json');
-    log(`Testing package JSON: ${pkgJsonPath} ...`);
-    try {
-        if (!fs.statSync(pkgJsonPath).isFile()) {
-            throw new Error();
+        const pkgJsonPath = path.resolve(baseDir, 'package.json');
+        log(`Testing package JSON: ${pkgJsonPath} ...`);
+        const statFile = fs.statSync(pkgJsonPath);
+        if (!statFile || !statFile.isFile()) {
+            return false;
         }
-    } catch (_) {
-        console.error(`${chalk.red("Error:")} no package.json found in path!`);
-        log(`Error details:`, _);
-        process.exit(1);
-    }
 
-    try {
         JSON.parse(fs.readFileSync(pkgJsonPath).toString()).version;
-    } catch (_) {
-        console.error(`${chalk.red("Error:")} invalid package.json! Is this really a node project?`);
-        log(`Error details:`, _);
-        process.exit(1);
-    }
 
-    const nodeModulesPath = path.resolve(baseDir, 'node_modules');
-    log(`Testing node modules path: ${nodeModulesPath} ...`);
-    try {
-        if (!fs.statSync(nodeModulesPath).isDirectory()) {
-            throw new Error();
+        const nodeModulesPath = path.resolve(baseDir, 'node_modules');
+        log(`Testing node modules path: ${nodeModulesPath} ...`);
+        const statModulesDir = fs.statSync(nodeModulesPath);
+        if (!statModulesDir || !statModulesDir.isDirectory()) {
+            return false;
         }
-    } catch (_) {
-        console.error(`${chalk.red("Error:")} no node_modules folder found! Did you run 'npm i'?`);
-        log(`Error details:`, _);
-        process.exit(1);
-    }
-
-    const entries = fs.readdirSync(nodeModulesPath);
-    log(`Enumerating entries in node_modules: ${entries.length} elements found!`);
-    if (entries.length < 1) {
-        console.error(`${chalk.red("Error:")} the node_modules folder is empty!`);
-        process.exit(1);
-    }
+        
+        const entries = fs.readdirSync(nodeModulesPath);
+        log(`Enumerating entries in node_modules: ${entries.length} elements found!`);
+        if (entries.length < 1) {
+            return false;
+        }
+    } catch (ex) {
+        log(`Error details:`, ex);
+        return false;
+    }    
 
     log(`Everything seems correct. Can inspect now!`);
+    return true;
 }
 
 function scanNodeModules(baseDir) {

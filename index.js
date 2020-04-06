@@ -35,7 +35,10 @@ program.verbose && debug.enable('*');
 
 async function main() {
 
-    isValidStartDir(program.dir);
+    if (!isValidStartDir(program.dir)) {
+        console.error(`${chalk.red("Error:")} base path not existing or not a NodeJS project!`);
+        process.exit(1);
+    }
 
     const pkgJson = getPackageJsonOfTarget(program.dir);
     console.log(`Inspecting node_modules of ${pkgJson.name}@${pkgJson.version} ...`);

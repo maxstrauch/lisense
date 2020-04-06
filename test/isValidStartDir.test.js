@@ -3,67 +3,77 @@ const { isValidStartDir } = require('../lisense');
 const mock = require('mock-fs');
 
 const fs = {
-    './node_modules': {
-        'module1': {
-            'package.json': JSON.stringify({ name: 'module1', version: '1.0.0', license: 'MIT' }),
-            'LICENSE': 'this is a license',
+    './good': {
+        'node_modules': {
+            'module1': {
+                'package.json': JSON.stringify({ name: 'module1', version: '1.0.0', license: 'MIT' }),
+                'LICENSE': 'this is a license',
+            },
+            'module2': {
+                'package.json': JSON.stringify({ name: 'module2', version: '1.0.0' }),
+                'license': 'this is a license',
+            },
         },
-        'module2': {
-            'package.json': JSON.stringify({ name: 'module2', version: '1.0.0' }),
-            'license': 'this is a license',
+        'package.json': JSON.stringify({ name: 'app', version: '1.0.0' }),
+        'root.txt': 'Inside the rootdir only!',
+        '.DS_Store': Buffer.from([0xaa, 0xff, 0x20]),
+    },
+    './no-packjson': {
+        'node_modules': {
+        },
+        'root.txt': 'Inside the rootdir only!',
+    },
+    './packjson-dir': {
+        'package.json': {
+            'root.txt': 'Inside the package.json only!',
         },
     },
-    './package.json': JSON.stringify({ name: 'app', version: '1.0.0' }),
-    './root.txt': 'Inside the rootdir only!',
-    './.DS_Store': Buffer.from([0xaa, 0xff, 0x20]),
+    './nodemods-file': {
+        'package.json': JSON.stringify({ name: 'app', version: '1.0.0' }),
+        'node_modules': 'This is no directory'
+    },
+    './nodemods-empty': {
+        'node_modules': { },
+        'package.json': JSON.stringify({ name: 'app', version: '1.0.0' }),
+    }
 };
 
 describe('function isValidStartDir', () => {
 
-    test('should return normally if correct', () => {
-
+    beforeEach(() => {
         mock(fs);
-        isValidStartDir('./');
-        mock.restore();
-
-        
-
     });
 
-    // test('list the correct prod packages for this module', async () => {
+    afterEach(() => {
+        mock.restore();
+    });
 
-    //     const pkgs = await getProdPackages(BASE_DIR, false);
+    test('should return false if invalid path', () => {
+        expect(isValidStartDir('a_not_existing_dir')).toBe(false);
+    });
 
-    //     expect(pkgs).toStrictEqual([
-    //         "chalk",
-    //         "commander",
-    //         "debug",
-    //         "ms",
-    //         "ansi-styles",
-    //         "supports-color",
-    //         "has-flag",
-    //         "@types/color-name",
-    //         "color-convert",
-    //         "color-name"
-    //     ]);
-    // });
+    test('should return true normally if correct', () => {
+        expect(isValidStartDir('./good')).toBe(true);
+    });
 
-    // test('check with pedantic mode successfull', async () => {
+    test('should not accept files', () => {
+        expect(isValidStartDir('./good/root.txt')).toBe(false);
+    });
 
-    //     const pkgs = await getProdPackages(BASE_DIR, true);
+    test('should not accept directory without package.json', () => {
+        expect(isValidStartDir('./no-packjson')).toBe(false);
+    });
 
-    //     expect(pkgs).toStrictEqual([
-    //         "chalk",
-    //         "commander",
-    //         "debug",
-    //         "ms",
-    //         "ansi-styles",
-    //         "supports-color",
-    //         "has-flag",
-    //         "@types/color-name",
-    //         "color-convert",
-    //         "color-name"
-    //     ]);
-    // });
+    test('should not accept directory with package.json directory', () => {
+        expect(isValidStartDir('./packjson-dir')).toBe(false);
+    });
 
+    test('should not accept directory with file node_modules', () => {
+        expect(isValidStartDir('./nodemods-file')).toBe(false);
+    });
+
+    test('should not accept empty node_modules directory', () => {
+        expect(isValidStartDir('./nodemods-empty')).toBe(false);
+    });
+    
 });
