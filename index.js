@@ -3,6 +3,7 @@
 const chalk = require('chalk');
 const program = require('commander');
 const debug = require('debug');
+const fs = require('fs');
 const { 
     isValidStartDir,
     scanNodeModules, 
@@ -33,13 +34,10 @@ program.parse(process.argv);
 
 program.verbose && debug.enable('*');
 
-async function main() {
+async function scan(program, isComineMode) {
+    isComineMode = isComineMode === true;
 
-    if (!isValidStartDir(program.dir)) {
-        console.error(`${chalk.red("Error:")} base path not existing or not a NodeJS project!`);
-        process.exit(1);
-    }
-
+    let returnableMods = [];
     const pkgJson = getPackageJsonOfTarget(program.dir);
     console.log(`Inspecting node_modules of ${pkgJson.name}@${pkgJson.version} ...`);
 
@@ -48,6 +46,14 @@ async function main() {
 
     if (program.prod) {
         modules = await filterModulesByProd(program.dir, modules, program.pedantic);
+    }
+
+    // Failed to find prod modules etc.
+    if (!modules) {
+        return {
+            exitCode: 1,
+            mods: []
+        };
     }
 
     const [ mods, modsWithout ] = extractLicenses(modulesMap, modules);
@@ -70,35 +76,164 @@ async function main() {
         console.log(`Used licenses (${licenses.length}): ${licenses.join(', ')}`);
     }
 
-    // Write all data to JSON file
-    if (program.json) {
-        writeJsonResultFile(program.json, mods);
-    }
+    if (!isComineMode) {
+        // Write all data to JSON file
+        if (program.json) {
+            if (!writeJsonResultFile(program.json, mods)) {
+                return {
+                    exitCode: 1,
+                    mods: []
+                };
+            }
+        }
 
-    // Write all data to CSV file
-    if (program.csv) {
-        writeCsvResultFile(program.dir, program.csv, mods);
+        // Write all data to CSV file
+        if (program.csv) {
+            if (!writeCsvResultFile(program.dir, program.csv, mods)) {
+                return {
+                    exitCode: 1,
+                    mods: []
+                };
+            }
+        }
+    } else {
+        returnableMods = mods.map(mod => ({...mod, parents: [ pkgJson.name ]}));
     }
 
     if (program.fail) {
         const regex = new RegExp(program.fail, 'i');
-        getDistinctLicenses(mods).forEach((license) => {
+        const licenses = getDistinctLicenses(mods);
+        for (let i = 0; i < licenses.length; i++) {
+            const license = licenses[i];
+
             if (license.match(regex)) {
                 console.log(`${chalk.red("Error:")} the license "${license}" conflicts with the given regex!`);
-                process.exit(2);
+                return {
+                    exitCode: 2,
+                    mods: []
+                };
             }
-        });
+        }
     }
 
     // If the option fail-on-missing is set, the program fails with error code 3
     // if there is at least one module which can't be scanned
     if (program.failOnMissing && modsWithout.length > 0) {
         console.error(`${chalk.red("Error:")} ${modsWithout.length} modules cannot be inspected!`);
-        process.exit(3);
+        return {
+            exitCode: 3,
+            mods: []
+        };
     }
 
-    // Execution finished successfully
-    process.exit(0);
+    return {
+        exitCode: 0,
+        mods: returnableMods || []
+    };
 }
 
-main().catch((ex) => { console.error(chalk.red(ex)); process.exit(1); });
+function sortAndMakeUnique(allMods) {
+    const uniqueMods = [];
+
+    for (let i = 0; i < allMods.length; i++) {
+
+        let contained = null;
+        for (let j = 0; j < uniqueMods.length; j++) {
+            if (
+                uniqueMods[j].name === allMods[i].name &&
+                uniqueMods[j].version === allMods[i].version && 
+                uniqueMods[j].license === allMods[i].license
+            ) {
+                contained = uniqueMods[j];
+                break;
+            }
+        }
+
+        if (contained) {
+            contained.parents = [...new Set([...contained.parents, ...allMods[i].parents])];
+        } else {
+            uniqueMods.push(allMods[i]);
+        }
+    }
+
+    return uniqueMods.sort((a, b) => (a.name > b.name ? 1 : (a.name < b.name ? -1 : 0)));
+}
+
+async function main() {
+
+    if (program.dir === '-') {
+        // Takes input from stdin and treats every line as a directory
+        // ---
+
+        const stdinBuffer = fs.readFileSync(0);
+        const files = stdinBuffer
+            .toString()
+            .split('\n')
+            .map(ln => (ln || '').trim())
+            .filter(ln => !!ln);
+
+        if (files.length < 1) {
+            console.error(`${chalk.red("Error:")} no directory list provided on stdin to scan!`);
+            process.exit(1);
+        }
+
+        const clonedProgram = JSON.parse(JSON.stringify(program));
+
+        let allMods = [];
+
+        for (let i = 0; i < files.length; i++) {
+            clonedProgram.dir = files[i];
+
+            if (!isValidStartDir(clonedProgram.dir)) {
+                console.error(`${chalk.red("Error:")} base path "${clonedProgram.dir}" not existing or not a NodeJS project!`);
+                process.exit(1);
+            }
+
+            console.log(`${i+1}/${files.length}: ${clonedProgram.dir}`);
+            console.log("----------------------------------------------");
+
+            const code = await scan(clonedProgram, true);
+
+            if (code.exitCode > 0) {
+                process.exit(code.exitCode);
+            }
+
+            allMods = allMods.concat(code.mods);
+
+            console.log(" ");
+        }
+
+        // Extract only the mods which are unique
+        const allUniqueMods = sortAndMakeUnique(allMods);
+
+        console.log("---");
+        console.log(`Found ${allMods.length} and reduced them to ${allUniqueMods.length} modules.`);
+
+        // Write all data to JSON file
+        if (program.json) {
+            writeJsonResultFile(program.json, allMods);
+        }
+
+        // Write all data to CSV file
+        if (program.csv) {
+            writeCsvResultFile(program.dir, program.csv, allMods);
+        }
+        
+        process.exit(0); // Should not reach here
+    } else {
+        // A normal scan for a given directory
+        // ---
+
+        if (!isValidStartDir(program.dir)) {
+            console.error(`${chalk.red("Error:")} base path not existing or not a NodeJS project!`);
+            process.exit(1);
+        }
+
+        const code = await scan(program);
+        process.exit(code.exitCode);
+    }
+
+    process.exit(0); // Should not reach here
+}
+
+main().catch((ex) => { console.error(chalk.red("Internal program error: " + ex)); process.exit(1); });

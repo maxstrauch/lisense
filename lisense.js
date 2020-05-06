@@ -327,7 +327,7 @@ async function filterModulesByProd(baseDir, modules, pedantic) {
     if (prodPackages.length !== tmpSelected.length) {
       console.error("ERROR: Number of packages differs: ", prodPackages.length, tmpSelected.length);
       console.error("You might want to run `npm i` to solve this problem since most of the time it causes this issue!");
-      process.exit(1);
+      return null;
     }
   
     return tmpSelected;
@@ -447,11 +447,23 @@ function extractLicenses(moduleMap, modules) {
 
 
 function writeJsonResultFile(filename, modules) {
+    const reducer = (mod) => ({
+        name: mod.name,
+        version: mod.version,
+        license: mod.license,
+        repoBaseUrl: mod.repoBaseUrl,
+        url: mod.url,
+        parents: mod.parents,
+    });
+
     if (filename === '-') {
-        console.log(JSON.stringify(modules, null, 4));
+        console.log(JSON.stringify(modules.map(reducer), null, 4));
         return;
     }
-    fs.writeFileSync(filename, JSON.stringify(modules, null, 4));
+
+    fs.writeFileSync(filename, JSON.stringify(modules.map(reducer), null, 4));
+
+    return true;
 }
 
 function getPackageJsonOfTarget(basePath) {
@@ -461,9 +473,7 @@ function getPackageJsonOfTarget(basePath) {
         return pkgJson;
     } catch (ex) {
         log(`Failed to get package.json of target:`, ex);
-
-        console.error("Error: cannot read package.json in dir " + basePath + "! No node package?");
-        process.exit(1);
+        return null;
     }
 }
 
@@ -478,8 +488,22 @@ function writeCsvResultFile(basePath, filename, modulesWithLicenses) {
             modulesWithLicenses[i].license,
             modulesWithLicenses[i].repoBaseUrl,
             modulesWithLicenses[i].url,
-            pkgJson.name
         ];
+
+        if (modulesWithLicenses[i].parents) {
+            if (Array.isArray(modulesWithLicenses[i].parents)) {
+                fields.push(modulesWithLicenses[i].parents.join(','));
+            } else {
+                fields.push(`${modulesWithLicenses[i].parents}`);
+            }
+        } else {
+            if (pkgJson && pkgJson.name) {
+                fields.push(pkgJson.name);
+            } else {
+                fields.push('N/A');
+            }
+        }
+
         csv += `${fields.map((x) => (`"${x}"`)).join(",")}\n`;
     }
 
@@ -490,6 +514,8 @@ function writeCsvResultFile(basePath, filename, modulesWithLicenses) {
         return;
     }
     fs.writeFileSync(filename, csv);
+
+    return true;
 }
 
 function getDistinctLicenses(modulesWithLicenses) {
