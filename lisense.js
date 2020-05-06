@@ -326,6 +326,7 @@ async function filterModulesByProd(baseDir, modules, pedantic) {
   
     if (prodPackages.length !== tmpSelected.length) {
       console.error("ERROR: Number of packages differs: ", prodPackages.length, tmpSelected.length);
+      console.error("You might want to run `npm i` to solve this problem since most of the time it causes this issue!");
       process.exit(1);
     }
   
