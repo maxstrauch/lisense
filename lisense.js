@@ -469,14 +469,15 @@ function getPackageJsonOfTarget(basePath) {
 function writeCsvResultFile(basePath, filename, modulesWithLicenses) {
     const pkgJson = getPackageJsonOfTarget(basePath);
 
-    let csv = `"module name","licenses","repository","licenseUrl","parents"\n`;
+    let csv = `"module name","version","licenses","repository","licenseUrl","parents"\n`;
     for (let i = 0; i < modulesWithLicenses.length; i++) {
         const fields = [
-        `${modulesWithLicenses[i].name}@${modulesWithLicenses[i].version}`,
-        modulesWithLicenses[i].license,
-        modulesWithLicenses[i].repoBaseUrl,
-        modulesWithLicenses[i].url,
-        pkgJson.name
+            modulesWithLicenses[i].name,
+            modulesWithLicenses[i].version,
+            modulesWithLicenses[i].license,
+            modulesWithLicenses[i].repoBaseUrl,
+            modulesWithLicenses[i].url,
+            pkgJson.name
         ];
         csv += `${fields.map((x) => (`"${x}"`)).join(",")}\n`;
     }
