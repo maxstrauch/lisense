@@ -4,32 +4,34 @@ const chalk = require('chalk');
 const program = require('commander');
 const debug = require('debug');
 const fs = require('fs');
-const { 
+const {
     isValidStartDir,
-    scanNodeModules, 
-    filterModulesByProd, 
-    extractLicenses, 
-    writeJsonResultFile, 
-    writeCsvResultFile, 
-    getDistinctLicenses, 
+    scanNodeModules,
+    filterModulesByProd,
+    extractLicenses,
+    writeJsonResultFile,
+    writeCsvResultFile,
+    compareToWhiteListFile,
+    getDistinctLicenses,
     printReport,
     getPackageJsonOfTarget
 } = require('./lisense');
 const packageJson = require('./package.json');
- 
+
 program
-  .version(packageJson.version)
-  .option('-d, --dir <directory>', 'The directory to use as base directory to start scanning', process.cwd())
-  .option('-p, --prod', 'Only inspect packages used for prod deployment (no devDependencies)', false)
-  .option('-v, --verbose', 'Enable verbose program output', false)
-  .option('-c, --csv <file>', 'CSV output of results', false)
-  .option('-j, --json <file>', 'JSON output of results', false)
-  .option('-f, --fail <license-regex>', 'Fail with exit code 2 if at least one of the license names matches the given regex', null)
-  .option('-r, --report <mode>', 'Generates a report on stderr with one of the modes: none (default), short, long', 'none')
-  .option('-l, --licenses', 'Print a list of used licenses')
-  .option('-z, --fail-on-missing', 'Fails the application with exit code 3 iff there is at least one node_module which cannot be inspected')
-  .option('--pedantic', 'Checks at some places if data can be confirmed from an other source (e.g. NPM)')
- 
+    .version(packageJson.version)
+    .option('-d, --dir <directory>', 'The directory to use as base directory to start scanning. Use a - for input mode', process.cwd())
+    .option('-p, --prod', 'Only inspect packages used for prod deployment (no devDependencies)', false)
+    .option('-v, --verbose', 'Enable verbose program output', false)
+    .option('-c, --csv <file>', 'CSV output of results', false)
+    .option('-j, --json <file>', 'JSON output of results', false)
+    .option('-f, --fail <license-regex>', 'Fail with exit code 2 if at least one of the license names matches the given regex', null)
+    .option('-r, --report <mode>', 'Generates a report on stderr with one of the modes: none (default), short, long', 'none')
+    .option('-l, --licenses', 'Print a list of used licenses')
+    .option('-z, --fail-on-missing', 'Fails the application with exit code 3 iff there is at least one node_module which cannot be inspected')
+    .option('--pedantic', 'Checks at some places if data can be confirmed from an other source (e.g. NPM)')
+    .option('-w, --whitelist <file>', 'JSON file to define a White List of allowed licenses and packages', false)
+
 program.parse(process.argv);
 
 program.verbose && debug.enable('*');
@@ -42,7 +44,7 @@ async function scan(program, isComineMode) {
     console.log(`Inspecting node_modules of ${pkgJson.name}@${pkgJson.version} ...`);
 
     // Get all node modules relative to the given root dir
-    let [ modulesMap, modules ] = scanNodeModules(program.dir);
+    let [modulesMap, modules] = scanNodeModules(program.dir);
 
     if (program.prod) {
         modules = await filterModulesByProd(program.dir, modules, program.pedantic);
@@ -56,7 +58,7 @@ async function scan(program, isComineMode) {
         };
     }
 
-    const [ mods, modsWithout ] = extractLicenses(modulesMap, modules);
+    const [mods, modsWithout] = extractLicenses(modulesMap, modules);
 
     if (modsWithout.length > 0) {
         console.error(`${chalk.yellow("WARNING:")} Found ${modsWithout.length} modules which could not be inspected:`);
@@ -97,7 +99,7 @@ async function scan(program, isComineMode) {
             }
         }
     } else {
-        returnableMods = mods.map(mod => ({...mod, parents: [ pkgJson.name ]}));
+        returnableMods = mods.map(mod => ({ ...mod, parents: [pkgJson.name] }));
     }
 
     if (program.fail) {
@@ -126,10 +128,19 @@ async function scan(program, isComineMode) {
         };
     }
 
+    // compare found licenses and packages with to a given white list
+    if (program.whitelist) {
+        if (compareToWhiteListFile(program.whitelist, mods)) {
+            return {
+                exitCode: 4,
+                mods: []
+            }
+        }
+    }
     return {
         exitCode: 0,
-        mods: returnableMods || []
-    };
+        mods: returnableMods || []
+    }
 }
 
 function sortAndMakeUnique(allMods) {
@@ -141,7 +152,7 @@ function sortAndMakeUnique(allMods) {
         for (let j = 0; j < uniqueMods.length; j++) {
             if (
                 uniqueMods[j].name === allMods[i].name &&
-                uniqueMods[j].version === allMods[i].version && 
+                uniqueMods[j].version === allMods[i].version &&
                 uniqueMods[j].license === allMods[i].license
             ) {
                 contained = uniqueMods[j];
@@ -162,14 +173,14 @@ function sortAndMakeUnique(allMods) {
 async function main() {
 
     if (program.dir === '-') {
-        // Takes input from stdin and treats every line as a directory
+        // Takes input from stdin and treats every line as a directory, input mode
         // ---
 
         const stdinBuffer = fs.readFileSync(0);
         const files = stdinBuffer
             .toString()
             .split('\n')
-            .map(ln => (ln || '').trim())
+            .map(ln => (ln || '').trim())
             .filter(ln => !!ln);
 
         if (files.length < 1) {
@@ -189,7 +200,7 @@ async function main() {
                 process.exit(1);
             }
 
-            console.log(`${i+1}/${files.length}: ${clonedProgram.dir}`);
+            console.log(`${i + 1}/${files.length}: ${clonedProgram.dir}`);
             console.log("----------------------------------------------");
 
             const code = await scan(clonedProgram, true);
@@ -218,7 +229,7 @@ async function main() {
         if (program.csv) {
             writeCsvResultFile(program.dir, program.csv, allMods);
         }
-        
+
         process.exit(0); // Should not reach here
     } else {
         // A normal scan for a given directory
@@ -236,4 +247,4 @@ async function main() {
     process.exit(0); // Should not reach here
 }
 
-main().catch((ex) => { console.error(chalk.red("Internal program error: " + ex)); process.exit(1); });
+main().catch((ex) => { console.error(chalk.red("Internal program error: " + ex)); process.exit(1); });

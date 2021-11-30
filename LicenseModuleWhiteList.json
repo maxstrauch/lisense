@@ -1,0 +1,73 @@
+[
+  {
+    "license": "MIT",
+    "modules": []
+  },
+  {
+    "license": "0BSD",
+    "modules": []
+  },
+  {
+    "license": "AFLv2.1+BSD",
+    "modules": []
+  },
+  {
+    "license": "Apache-2.0",
+    "modules": []
+  },
+  {
+    "license": "BSD",
+    "modules": []
+  },
+  {
+    "license": "BSD-2-Clause",
+    "modules": []
+  },
+  {
+    "license": "BSD-3-Clause",
+    "modules": []
+  },
+  {
+    "license": "CC-BY-4.0",
+    "modules": []
+  },
+  {
+    "license": "CC0-1.0",
+    "modules": []
+  },
+  {
+    "license": "GPL-3.0-or-later",
+    "modules": [
+      "ffmpeg"
+    ]
+  },
+  {
+    "license": "ISC",
+    "modules": []
+  },
+  {
+    "license": "OFL-1.1+MIT",
+    "modules": []
+  },
+  {
+    "license": "UNKNOWN",
+    "modules": [
+      "atob",
+      "deep",
+      "a",
+      "garply"
+    ]
+  },
+  {
+    "license": "Unlicense",
+    "modules": []
+  },
+  {
+    "license": "WTFPL",
+    "modules": []
+  },
+  {
+    "license": "Zlib",
+    "modules": []
+  }
+]

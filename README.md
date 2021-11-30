@@ -30,6 +30,7 @@ So `lisense` was born. See the CLI interface:
     -l, --licenses              Print a list of used licenses
     -z, --fail-on-missing       Fails the application with exit code 3 iff there is at least one node_module which cannot be inspected
     --pedantic                  Checks at some places if data can be confirmed from an other source (e.g. NPM)
+    -w, --whitelist <file>      JSON file to define a White List of allowed licenses and packages (default: false)
     -h, --help                  output usage information
 
 
