@@ -130,7 +130,7 @@ async function scan(program, isComineMode) {
 
     // compare found licenses and packages with to a given white list
     if (program.whitelist) {
-        if (compareToWhiteListFile(program.whitelist, mods)) {
+        if (compareToWhiteListFile(program.whitelist, mods).length > 0) {
             return {
                 exitCode: 4,
                 mods: []
