@@ -4,35 +4,41 @@ const chalk = require('chalk');
 const program = require('commander');
 const debug = require('debug');
 const fs = require('fs');
-const { 
+const {
     isValidStartDir,
-    scanNodeModules, 
-    filterModulesByProd, 
-    extractLicenses, 
-    writeJsonResultFile, 
-    writeCsvResultFile, 
-    getDistinctLicenses, 
+    scanNodeModules,
+    filterModulesByProd,
+    extractLicenses,
+    writeJsonResultFile,
+    writeCsvResultFile,
+    compareToWhiteListFile,
+    getDistinctLicenses,
     printReport,
-    getPackageJsonOfTarget
+    getPackageJsonOfTarget,
+    generateSampleWhitelist
 } = require('./lisense');
 const packageJson = require('./package.json');
- 
+
 program
-  .version(packageJson.version)
-  .option('-d, --dir <directory>', 'The directory to use as base directory to start scanning', process.cwd())
-  .option('-p, --prod', 'Only inspect packages used for prod deployment (no devDependencies)', false)
-  .option('-v, --verbose', 'Enable verbose program output', false)
-  .option('-c, --csv <file>', 'CSV output of results', false)
-  .option('-j, --json <file>', 'JSON output of results', false)
-  .option('-f, --fail <license-regex>', 'Fail with exit code 2 if at least one of the license names matches the given regex', null)
-  .option('-r, --report <mode>', 'Generates a report on stderr with one of the modes: none (default), short, long', 'none')
-  .option('-l, --licenses', 'Print a list of used licenses')
-  .option('-z, --fail-on-missing', 'Fails the application with exit code 3 iff there is at least one node_module which cannot be inspected')
-  .option('--pedantic', 'Checks at some places if data can be confirmed from an other source (e.g. NPM)')
- 
+    .version(packageJson.version)
+    .option('-d, --dir <directory>', 'The directory to use as base directory to start scanning. Use a - for input mode where a list of directories, one per line, can be provided using stdin', process.cwd())
+    .option('-p, --prod', 'Only inspect packages used for prod deployment (no devDependencies)', false)
+    .option('-v, --verbose', 'Enable verbose program output', false)
+    .option('-c, --csv <file>', 'CSV output of results', false)
+    .option('-j, --json <file>', 'JSON output of results', false)
+    .option('-f, --fail <license-regex>', 'Fail with exit code 2 if at least one of the license names matches the given regex', null)
+    .option('-r, --report <mode>', 'Generates a report on stderr with one of the modes: none (default), short, long', 'none')
+    .option('-l, --licenses', 'Print a list of used licenses')
+    .option('-z, --fail-on-missing', 'Fails the application with exit code 3 iff there is at least one node_module which cannot be inspected')
+    .option('--pedantic', 'Checks at some places if data can be confirmed from an other source (e.g. NPM)')
+    .option('-w, --whitelist <file>', 'JSON file to define a whitelist of allowed licenses and packages', false)
+    .option('--create-new-whitelist <file>', 'Creates an empty, example whitlist file and exits regardless of any other flag', false)
+
 program.parse(process.argv);
 
 program.verbose && debug.enable('*');
+
+let whitelistData = null;
 
 async function scan(program, isComineMode) {
     isComineMode = isComineMode === true;
@@ -126,9 +132,19 @@ async function scan(program, isComineMode) {
         };
     }
 
+    // Compare the computed list of licenses to the provided list
+    if (program.whitelist && whitelistData) {
+        if (compareToWhiteListFile(whitelistData, mods).length > 0) {
+            return {
+                exitCode: 4,
+                mods: []
+            };
+        }
+    }
+
     return {
         exitCode: 0,
-        mods: returnableMods || []
+        mods: returnableMods || []
     };
 }
 
@@ -141,7 +157,7 @@ function sortAndMakeUnique(allMods) {
         for (let j = 0; j < uniqueMods.length; j++) {
             if (
                 uniqueMods[j].name === allMods[i].name &&
-                uniqueMods[j].version === allMods[i].version && 
+                uniqueMods[j].version === allMods[i].version &&
                 uniqueMods[j].license === allMods[i].license
             ) {
                 contained = uniqueMods[j];
@@ -160,16 +176,33 @@ function sortAndMakeUnique(allMods) {
 }
 
 async function main() {
+    if (program.createNewWhitelist) {
+        generateSampleWhitelist(program.createNewWhitelist)
+        return;
+    }
+
+
+    // Read the whitelist data in early, to fail early and not
+    // go through the entire process of checking to then fail
+    // on loading the JSON file
+    if (program.whitelist) {
+        try {
+            whitelistData = JSON.parse(fs.readFileSync(program.whitelist).toString());
+        } catch (ex) {
+            console.error(`${chalk.red("Error:")} the whitelist provided is not valid JSON!`);
+            process.exit(1);
+        }
+    }
 
     if (program.dir === '-') {
-        // Takes input from stdin and treats every line as a directory
+        // Takes input from stdin and treats every line as a directory, called "input mode"
         // ---
 
         const stdinBuffer = fs.readFileSync(0);
         const files = stdinBuffer
             .toString()
             .split('\n')
-            .map(ln => (ln || '').trim())
+            .map(ln => (ln || '').trim())
             .filter(ln => !!ln);
 
         if (files.length < 1) {
@@ -218,7 +251,7 @@ async function main() {
         if (program.csv) {
             writeCsvResultFile(program.dir, program.csv, allMods);
         }
-        
+
         process.exit(0); // Should not reach here
     } else {
         // A normal scan for a given directory
@@ -232,8 +265,6 @@ async function main() {
         const code = await scan(program);
         process.exit(code.exitCode);
     }
-
-    process.exit(0); // Should not reach here
 }
 
-main().catch((ex) => { console.error(chalk.red("Internal program error: " + ex)); process.exit(1); });
+main().catch((ex) => { console.error(chalk.red("Internal program error: " + ex)); process.exit(1); });

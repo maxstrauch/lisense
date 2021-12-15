@@ -30,6 +30,7 @@
   },
   "homepage": "https://github.com/maxstrauch/lisense#readme",
   "dependencies": {
+    "ascii-table": "0.0.9",
     "chalk": "^3.0.0",
     "commander": "^4.1.1",
     "debug": "^4.1.1"
