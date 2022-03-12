@@ -9,7 +9,7 @@ The module `lisense` (pronounced: `license`) is a CLI tool to get license inform
 For itself, license will print out (for production node modules) the following:
 
     $ npx lisense --report short -p
-    Inspecting node_modules of lisense@1.4.0 ...
+    Inspecting node_modules of lisense@1.5.2 ...
     MIT (11)
         ascii-table, chalk, commander, debug, ms, ansi-styles, supports-color, has-flag, @types/color-name, ...
 
@@ -26,6 +26,7 @@ Besides the graphical output for e.g. CI/CD pipelines you can also export the da
                                     can be provided using stdin (default: "/Users/maximilianstrauch/Documents/Projekte/lisense")
     -p, --prod                     Only inspect packages used for prod deployment (no devDependencies) (default: false)
     -v, --verbose                  Enable verbose program output (default: false)
+    -q, --quiet                    Force quiet mode on stdout (if errors are thrown they are still outputted but they are printed to stderr) (default: false)    
     -c, --csv <file>               CSV output of results (default: false)
     -j, --json <file>              JSON output of results (default: false)
     -f, --fail <license-regex>     Fail with exit code 2 if at least one of the license names matches the given regex (default: null)
