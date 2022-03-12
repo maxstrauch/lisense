@@ -465,7 +465,7 @@ function writeJsonResultFile(filename, modules) {
 
     if (filename === '-') {
         console.log(JSON.stringify(modules.map(reducer), null, 4));
-        return;
+        return true;
     }
 
     fs.writeFileSync(filename, JSON.stringify(modules.map(reducer), null, 4));
@@ -551,29 +551,29 @@ function compareToWhiteListFile(whiteList, modules) {
 
     // List whitelisted modules
     if (allowedModules.length) {
-        console.log(`${chalk.blue("INFO:")} Found ${allowedModules.length} package(s) that were explicitly excluded by the whitelist!`);
-        console.log();
+        !quietMode && console.log(`${chalk.blue("INFO:")} Found ${allowedModules.length} package(s) that were explicitly excluded by the whitelist!`);
+        !quietMode && console.log();
 
         var table = new AsciiTable();
         table.setHeading('', 'Module', 'License');
         for (let i = 0; i < allowedModules.length; i++) {
             table.addRow(i+1, allowedModules[i].name, allowedModules[i].license);
         }
-        console.log(`${table.toString()}\n`);
+        !quietMode && console.log(`${table.toString()}\n`);
     }    
 
     // List unlicensed modules, if any
     if (unlicensedModules.length) {
-        console.log(`${chalk.red("ERROR:")} Found ${unlicensedModules.length} package(s) with licenses NOT included in the whitelist!`);
-        console.log(chalk.gray(`Either remove those packages from your project or add them to the whitelist!`));
-        console.log();
+        console.error(`${chalk.red("ERROR:")} Found ${unlicensedModules.length} package(s) with licenses NOT included in the whitelist!`);
+        console.error(chalk.gray(`Either remove those packages from your project or add them to the whitelist!`));
+        console.error();
 
         var table = new AsciiTable();
         table.setHeading('', 'Module', 'License');
         for (let i = 0; i < unlicensedModules.length; i++) {
             table.addRow(i+1, unlicensedModules[i].name, unlicensedModules[i].license);
         }
-        console.log(`${chalk.red(table.toString())}\n`);
+        console.error(`${chalk.red(table.toString())}\n`);
     }
 
     return unlicensedModules;
@@ -648,12 +648,12 @@ function printReport(modulesWithLicenses, detailed) {
 
     const distinctLicenses = Object.getOwnPropertyNames(overviewMap);
     for (let i = 0; i < distinctLicenses.length; i++) {
-        console.log('\x1b[36m%s\x1b[0m (' + overviewMap[distinctLicenses[i]].length + ')', distinctLicenses[i]);
+        !quietMode && console.log('\x1b[36m%s\x1b[0m (' + overviewMap[distinctLicenses[i]].length + ')', distinctLicenses[i]);
         const moduleNames = overviewMap[distinctLicenses[i]].join(', ');
         if (detailed) {
-            console.log("   " + moduleNames);
+            !quietMode && console.log("   " + moduleNames);
         } else {
-            console.log("   " + (moduleNames.length > 100 ? moduleNames.substring(0, 100) + '...' : moduleNames));
+            !quietMode && console.log("   " + (moduleNames.length > 100 ? moduleNames.substring(0, 100) + '...' : moduleNames));
         }
     }
 }
@@ -739,7 +739,7 @@ function generateSampleWhitelist(filename) {
             4
         )
     );
-    console.log(`${chalk.green(`'${filename}' successfully written.`)}`);
+    !quietMode && console.log(`${chalk.green(`'${filename}' successfully written.`)}`);
 }
 
 module.exports = {

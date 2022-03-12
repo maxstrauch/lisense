@@ -24,6 +24,7 @@ program
     .option('-d, --dir <directory>', 'The directory to use as base directory to start scanning. Use a - for input mode where a list of directories, one per line, can be provided using stdin', process.cwd())
     .option('-p, --prod', 'Only inspect packages used for prod deployment (no devDependencies)', false)
     .option('-v, --verbose', 'Enable verbose program output', false)
+    .option('-q, --quiet', 'Force quiet mode on stdout (if errors are thrown they are still outputted but they are printed to stderr)', false)
     .option('-c, --csv <file>', 'CSV output of results', false)
     .option('-j, --json <file>', 'JSON output of results', false)
     .option('-f, --fail <license-regex>', 'Fail with exit code 2 if at least one of the license names matches the given regex', null)
@@ -38,6 +39,8 @@ program.parse(process.argv);
 
 program.verbose && debug.enable('*');
 
+const quietMode = program.quiet === true;
+
 let whitelistData = null;
 
 async function scan(program, isComineMode) {
@@ -45,7 +48,7 @@ async function scan(program, isComineMode) {
 
     let returnableMods = [];
     const pkgJson = getPackageJsonOfTarget(program.dir);
-    console.log(`Inspecting node_modules of ${pkgJson.name}@${pkgJson.version} ...`);
+    !quietMode && console.log(`Inspecting node_modules of ${pkgJson.name}@${pkgJson.version} ...`);
 
     // Get all node modules relative to the given root dir
     let [ modulesMap, modules ] = scanNodeModules(program.dir);
@@ -65,7 +68,7 @@ async function scan(program, isComineMode) {
     const [ mods, modsWithout ] = extractLicenses(modulesMap, modules);
 
     if (modsWithout.length > 0) {
-        console.error(`${chalk.yellow("WARNING:")} Found ${modsWithout.length} modules which could not be inspected:`);
+        console.error(`${chalk.yellow("WARNING:")} Found ${modsWithout.length} modules which could not be inspected:`);
         modsWithout.forEach((mod) => {
             console.error(`  - ${mod.name}@${mod.version || 'N/A'} (${mod.localPath})`);
         });
@@ -79,7 +82,7 @@ async function scan(program, isComineMode) {
     // Print a list of all distinct licenses to stdout
     if (program.licenses) {
         const licenses = getDistinctLicenses(mods);
-        console.log(`Used licenses (${licenses.length}): ${licenses.join(', ')}`);
+        !quietMode && console.log(`Used licenses (${licenses.length}): ${licenses.join(', ')}`);
     }
 
     if (!isComineMode) {
@@ -113,7 +116,7 @@ async function scan(program, isComineMode) {
             const license = licenses[i];
 
             if (license.match(regex)) {
-                console.log(`${chalk.red("Error:")} the license "${license}" conflicts with the given regex!`);
+                !quietMode && console.log(`${chalk.red("Error:")} the license "${license}" conflicts with the given regex!`);
                 return {
                     exitCode: 2,
                     mods: []
@@ -222,8 +225,8 @@ async function main() {
                 process.exit(1);
             }
 
-            console.log(`${i+1}/${files.length}: ${clonedProgram.dir}`);
-            console.log("----------------------------------------------");
+            !quietMode && console.log(`${i+1}/${files.length}: ${clonedProgram.dir}`);
+            !quietMode && console.log("----------------------------------------------");
 
             const code = await scan(clonedProgram, true);
 
@@ -233,14 +236,14 @@ async function main() {
 
             allMods = allMods.concat(code.mods);
 
-            console.log(" ");
+            !quietMode && console.log(" ");
         }
 
         // Extract only the mods which are unique
         const allUniqueMods = sortAndMakeUnique(allMods);
 
-        console.log("---");
-        console.log(`Found ${allMods.length} and reduced them to ${allUniqueMods.length} modules.`);
+        !quietMode && console.log("---");
+        !quietMode && console.log(`Found ${allMods.length} and reduced them to ${allUniqueMods.length} modules.`);
 
         // Write all data to JSON file
         if (program.json) {
