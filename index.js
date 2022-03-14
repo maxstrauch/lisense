@@ -40,6 +40,7 @@ program.parse(process.argv);
 program.verbose && debug.enable('*');
 
 const quietMode = program.quiet === true;
+global.quietMode = quietMode;
 
 let whitelistData = null;
 
