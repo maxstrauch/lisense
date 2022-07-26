@@ -266,7 +266,7 @@ function scanNodeModules(baseDir) {
 
     const moduleMap = {};
 
-    const basePath = path.resolve(baseDir, 'node_modules'+path.sep);
+    const basePath = path.resolve(baseDir, 'node_modules' + path.sep);
     log(`Searching for node_modules in: ${basePath}`);
 
 
@@ -274,7 +274,7 @@ function scanNodeModules(baseDir) {
         return file.indexOf('package.json') > -1 || file.toLowerCase().indexOf('license') > -1;
     })
         .forEach((fileName) => {
-            const index = fileName.lastIndexOf('node_modules'+path.sep) + 13;
+            const index = fileName.lastIndexOf('node_modules' + path.sep) + 13;
             let followingSlash = fileName.indexOf(path.sep, index + 1);
             let pkgName = fileName.substring(index, followingSlash);
 
@@ -297,7 +297,7 @@ function scanNodeModules(baseDir) {
     // to a package.json is taken as the "root" package.json
     // ---
     const _sortByLen = (a, b) => {
-        return `${a}`.length-`${b}`.length;
+        return `${a}`.length - `${b}`.length;
     };
 
     for (let i = 0; i < modules.length; i++) {
@@ -311,7 +311,7 @@ function scanNodeModules(baseDir) {
         moduleMap[modules[i]] = selected;
     }
 
-    return [ moduleMap, modules ];
+    return [moduleMap, modules];
 }
 
 
@@ -369,7 +369,7 @@ function tryFallbackLicenseDetection(modPkgJsonPath, paths) {
 
         try {
             return detectLicenseFromFile(fs.readFileSync(licenseFile).toString());
-        } catch(ex) {
+        } catch (ex) {
             log(`Error: cannot read license file:`, ex);
         }
     }
@@ -378,7 +378,7 @@ function tryFallbackLicenseDetection(modPkgJsonPath, paths) {
     return 'UNKNOWN';
 }
 
-function extractLicenses(moduleMap, modules) {
+function extractLicenses(moduleMap, modules, withoutUrls) {
     const log = debug(`app:extractLicenses`);
 
     const modulesWithLicenses = [];
@@ -432,17 +432,20 @@ function extractLicenses(moduleMap, modules) {
                 pkgJson.license = pkgJson.license.type;
             }
 
-            modulesWithLicenses.push({
+            let license = {
                 name: modules[i],
                 license: pkgJson.license || pkgJson.licenses,
-                url: licenseFileUrl,
                 version: pkgJson.version,
                 originalPaths: moduleMap[modules[i]],
-                repoBaseUrl: sourceBase,
-            });
+            };
 
+            if (!withoutUrls) {
+                license.url = licenseFileUrl;
+                license.repoBaseUrl = sourceBase;
+            }
+
+            modulesWithLicenses.push(license);
         }
-
     }
 
     return [
@@ -453,15 +456,21 @@ function extractLicenses(moduleMap, modules) {
 }
 
 
-function writeJsonResultFile(filename, modules) {
-    const reducer = (mod) => ({
-        name: mod.name,
-        version: mod.version,
-        license: mod.license,
-        repoBaseUrl: mod.repoBaseUrl,
-        url: mod.url,
-        parents: mod.parents,
-    });
+function writeJsonResultFile(filename, modules, withoutUrls) {
+    const reducer = (mod) => {
+        const fields = {
+            name: mod.name,
+            version: mod.version,
+            license: mod.license,
+        }
+
+        if (!withoutUrls) {
+            fields.repoBaseUrl = mod.repoBaseUrl;
+            fields.url = mod.url;
+        }
+
+        return fields;
+    };
 
     if (filename === '-') {
         console.log(JSON.stringify(modules.map(reducer), null, 4));
@@ -484,18 +493,20 @@ function getPackageJsonOfTarget(basePath) {
     }
 }
 
-function writeCsvResultFile(basePath, filename, modulesWithLicenses) {
+function writeCsvResultFile(basePath, filename, modulesWithLicenses, withoutUrls, withoutParent) {
     const pkgJson = getPackageJsonOfTarget(basePath);
 
-    let csv = `"module name","version","licenses","repository","licenseUrl","parents"\n`;
+    let csv = `"module name","version","licenses"`;
+    if (!withoutUrls) {
+        csv += `,"repository","licenseUrl"`;
+    }
+    if (!withoutParent) {
+        csv += `,"parents"`;
+    }
+    csv += "\n";
+
     for (let i = 0; i < modulesWithLicenses.length; i++) {
-        const fields = [
-            modulesWithLicenses[i].name,
-            modulesWithLicenses[i].version,
-            modulesWithLicenses[i].license,
-            modulesWithLicenses[i].repoBaseUrl,
-            modulesWithLicenses[i].url,
-        ];
+        let fields = getFieldsFromModuleWithLicense(modulesWithLicenses, i, withoutUrls);
 
         if (modulesWithLicenses[i].parents) {
             if (Array.isArray(modulesWithLicenses[i].parents)) {
@@ -504,10 +515,12 @@ function writeCsvResultFile(basePath, filename, modulesWithLicenses) {
                 fields.push(`${modulesWithLicenses[i].parents}`);
             }
         } else {
-            if (pkgJson && pkgJson.name) {
-                fields.push(pkgJson.name);
-            } else {
-                fields.push('N/A'); // short for: not applicable
+            if (!withoutParent) {
+                if (pkgJson && pkgJson.name) {
+                    fields.push(pkgJson.name);
+                } else {
+                    fields.push('N/A'); // short for: not applicable
+                }
             }
         }
 
@@ -523,6 +536,78 @@ function writeCsvResultFile(basePath, filename, modulesWithLicenses) {
     fs.writeFileSync(filename, csv);
 
     return true;
+}
+
+function writeMarkdownResultFile(basePath, filename, modulesWithLicenses, withoutUrls, withoutParent) {
+    const pkgJson = getPackageJsonOfTarget(basePath);
+
+    let markdown = `| module name | version | licenses |`;
+
+    if (!withoutUrls) {
+        markdown += `repository | licenseUrl |`;
+    }
+    if (!withoutParent) {
+        markdown += `parents |`;
+    }
+
+    markdown += "\n";
+    markdown += `| --- | --- | --- |`;
+
+    if (!withoutUrls) {
+        markdown += `--- | --- |`;
+    }
+    if (!withoutParent) {
+        markdown += `--- |`;
+    }
+
+    markdown += "\n";
+
+    for (let i = 0; i < modulesWithLicenses.length; i++) {
+        let fields = getFieldsFromModuleWithLicense(modulesWithLicenses, i, withoutUrls);
+
+        if (modulesWithLicenses[i].parents) {
+            if (Array.isArray(modulesWithLicenses[i].parents)) {
+                fields.push(modulesWithLicenses[i].parents.join(' | '));
+            } else {
+                fields.push(`${modulesWithLicenses[i].parents}`);
+            }
+        } else {
+            if (!withoutParent) {
+                if (pkgJson && pkgJson.name) {
+                    fields.push(pkgJson.name);
+                } else {
+                    fields.push('N/A'); // short for: not applicable
+                }
+            }
+        }
+
+        markdown += `| ${fields.map((x) => (`${x}`)).join(" | ")} |\n`;
+    }
+
+    markdown = markdown.trim();
+
+    if (filename === '-') {
+        console.log(markdown);
+        return;
+    }
+    fs.writeFileSync(filename, markdown);
+
+    return true;
+}
+
+function getFieldsFromModuleWithLicense(arr, idx, withoutUrls) {
+    let fields = [
+        arr[idx].name,
+        arr[idx].version,
+        arr[idx].license
+    ];
+
+    if (!withoutUrls) {
+        fields.push(arr[idx].repoBaseUrl);
+        fields.push(arr[idx].url);
+    }
+
+    return fields;
 }
 
 /**
@@ -557,10 +642,10 @@ function compareToWhiteListFile(whiteList, modules) {
         var table = new AsciiTable();
         table.setHeading('', 'Module', 'License');
         for (let i = 0; i < allowedModules.length; i++) {
-            table.addRow(i+1, allowedModules[i].name, allowedModules[i].license);
+            table.addRow(i + 1, allowedModules[i].name, allowedModules[i].license);
         }
         !quietMode && console.log(`${table.toString()}\n`);
-    }    
+    }
 
     // List unlicensed modules, if any
     if (unlicensedModules.length) {
@@ -571,7 +656,7 @@ function compareToWhiteListFile(whiteList, modules) {
         var table = new AsciiTable();
         table.setHeading('', 'Module', 'License');
         for (let i = 0; i < unlicensedModules.length; i++) {
-            table.addRow(i+1, unlicensedModules[i].name, unlicensedModules[i].license);
+            table.addRow(i + 1, unlicensedModules[i].name, unlicensedModules[i].license);
         }
         console.error(`${chalk.red(table.toString())}\n`);
     }
@@ -594,7 +679,7 @@ function isLicenseOfModuleListedInWhiteList(nodeModule, whiteList) {
     const match = nodeModule.license.match(regex);
 
     // Replace moduleLicenses in case of " OR " (||)
-    if (match && match.groups && match.groups.content) { 
+    if (match && match.groups && match.groups.content) {
         moduleLicenses = match.groups.content.split(' OR ');
     }
 
@@ -664,75 +749,75 @@ function generateSampleWhitelist(filename) {
         JSON.stringify(
             [
                 {
-                  "license": "MIT",
-                  "modules": []
+                    "license": "MIT",
+                    "modules": []
                 },
                 {
-                  "license": "0BSD",
-                  "modules": []
+                    "license": "0BSD",
+                    "modules": []
                 },
                 {
-                  "license": "AFLv2.1+BSD",
-                  "modules": []
+                    "license": "AFLv2.1+BSD",
+                    "modules": []
                 },
                 {
-                  "license": "Apache-2.0",
-                  "modules": []
+                    "license": "Apache-2.0",
+                    "modules": []
                 },
                 {
-                  "license": "BSD",
-                  "modules": []
+                    "license": "BSD",
+                    "modules": []
                 },
                 {
-                  "license": "BSD-2-Clause",
-                  "modules": []
+                    "license": "BSD-2-Clause",
+                    "modules": []
                 },
                 {
-                  "license": "BSD-3-Clause",
-                  "modules": []
+                    "license": "BSD-3-Clause",
+                    "modules": []
                 },
                 {
-                  "license": "CC-BY-4.0",
-                  "modules": []
+                    "license": "CC-BY-4.0",
+                    "modules": []
                 },
                 {
-                  "license": "CC0-1.0",
-                  "modules": []
+                    "license": "CC0-1.0",
+                    "modules": []
                 },
                 {
-                  "license": "GPL-3.0-or-later",
-                  "modules": [
-                    "ffmpeg"
-                  ]
+                    "license": "GPL-3.0-or-later",
+                    "modules": [
+                        "ffmpeg"
+                    ]
                 },
                 {
-                  "license": "ISC",
-                  "modules": []
+                    "license": "ISC",
+                    "modules": []
                 },
                 {
-                  "license": "OFL-1.1+MIT",
-                  "modules": []
+                    "license": "OFL-1.1+MIT",
+                    "modules": []
                 },
                 {
-                  "license": "UNKNOWN",
-                  "modules": [
-                    "atob",
-                    "deep",
-                    "a",
-                    "garply"
-                  ]
+                    "license": "UNKNOWN",
+                    "modules": [
+                        "atob",
+                        "deep",
+                        "a",
+                        "garply"
+                    ]
                 },
                 {
-                  "license": "Unlicense",
-                  "modules": []
+                    "license": "Unlicense",
+                    "modules": []
                 },
                 {
-                  "license": "WTFPL",
-                  "modules": []
+                    "license": "WTFPL",
+                    "modules": []
                 },
                 {
-                  "license": "Zlib",
-                  "modules": []
+                    "license": "Zlib",
+                    "modules": []
                 }
             ],
             null,
@@ -749,6 +834,7 @@ module.exports = {
     extractLicenses,
     writeJsonResultFile,
     writeCsvResultFile,
+    writeMarkdownResultFile,
     getDistinctLicenses,
     printReport,
     isValidStartDir,

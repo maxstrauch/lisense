@@ -11,6 +11,7 @@ const {
     extractLicenses,
     writeJsonResultFile,
     writeCsvResultFile,
+    writeMarkdownResultFile,
     compareToWhiteListFile,
     getDistinctLicenses,
     printReport,
@@ -23,9 +24,13 @@ program
     .version(packageJson.version)
     .option('-d, --dir <directory>', 'The directory to use as base directory to start scanning. Use a - for input mode where a list of directories, one per line, can be provided using stdin', process.cwd())
     .option('-p, --prod', 'Only inspect packages used for prod deployment (no devDependencies)', false)
+    .option('-u, --without-url', 'Excludes repository and license url from output', false)
+    .option('-t, --without-parent', 'Excludes the parent information', false)
+    .option('-s, --short', 'Excludes the urls and parent information from output', false)
     .option('-v, --verbose', 'Enable verbose program output', false)
     .option('-q, --quiet', 'Force quiet mode on stdout (if errors are thrown they are still outputted but they are printed to stderr)', false)
     .option('-c, --csv <file>', 'CSV output of results', false)
+    .option('-m, --markdown <file>', 'Markdown output of results', false)
     .option('-j, --json <file>', 'JSON output of results', false)
     .option('-f, --fail <license-regex>', 'Fail with exit code 2 if at least one of the license names matches the given regex', null)
     .option('-r, --report <mode>', 'Generates a report on stderr with one of the modes: none (default), short, long', 'none')
@@ -44,6 +49,11 @@ global.quietMode = quietMode;
 
 let whitelistData = null;
 
+if (program.short) {
+    program.withoutUrl = true;
+    program.withoutParent = true;
+}
+
 async function scan(program, isComineMode) {
     isComineMode = isComineMode === true;
 
@@ -52,7 +62,7 @@ async function scan(program, isComineMode) {
     !quietMode && console.log(`Inspecting node_modules of ${pkgJson.name}@${pkgJson.version} ...`);
 
     // Get all node modules relative to the given root dir
-    let [ modulesMap, modules ] = scanNodeModules(program.dir);
+    let [modulesMap, modules] = scanNodeModules(program.dir);
 
     if (program.prod) {
         modules = await filterModulesByProd(program.dir, modules, program.pedantic);
@@ -66,7 +76,7 @@ async function scan(program, isComineMode) {
         };
     }
 
-    const [ mods, modsWithout ] = extractLicenses(modulesMap, modules);
+    const [mods, modsWithout] = extractLicenses(modulesMap, modules, program.withoutUrl);
 
     if (modsWithout.length > 0) {
         console.error(`${chalk.yellow("WARNING:")} Found ${modsWithout.length} modules which could not be inspected:`);
@@ -89,7 +99,7 @@ async function scan(program, isComineMode) {
     if (!isComineMode) {
         // Write all data to JSON file
         if (program.json) {
-            if (!writeJsonResultFile(program.json, mods)) {
+            if (!writeJsonResultFile(program.json, mods, program.withoutUrl, program.withoutParent)) {
                 return {
                     exitCode: 1,
                     mods: []
@@ -99,7 +109,16 @@ async function scan(program, isComineMode) {
 
         // Write all data to CSV file
         if (program.csv) {
-            if (!writeCsvResultFile(program.dir, program.csv, mods)) {
+            if (!writeCsvResultFile(program.dir, program.csv, mods, program.withoutUrl, program.withoutParent)) {
+                return {
+                    exitCode: 1,
+                    mods: []
+                };
+            }
+        }
+
+        if (program.markdown) {
+            if (!writeMarkdownResultFile(program.dir, program.markdown, mods, program.withoutUrl, program.withoutParent)) {
                 return {
                     exitCode: 1,
                     mods: []
@@ -107,7 +126,7 @@ async function scan(program, isComineMode) {
             }
         }
     } else {
-        returnableMods = mods.map(mod => ({...mod, parents: [ pkgJson.name ]}));
+        returnableMods = mods.map(mod => ({ ...mod, parents: [pkgJson.name] }));
     }
 
     if (program.fail) {
@@ -226,7 +245,7 @@ async function main() {
                 process.exit(1);
             }
 
-            !quietMode && console.log(`${i+1}/${files.length}: ${clonedProgram.dir}`);
+            !quietMode && console.log(`${i + 1}/${files.length}: ${clonedProgram.dir}`);
             !quietMode && console.log("----------------------------------------------");
 
             const code = await scan(clonedProgram, true);
@@ -248,12 +267,17 @@ async function main() {
 
         // Write all data to JSON file
         if (program.json) {
-            writeJsonResultFile(program.json, allMods);
+            writeJsonResultFile(program.json, allMods, program.withoutUrl, program.withoutParent);
         }
 
         // Write all data to CSV file
         if (program.csv) {
-            writeCsvResultFile(program.dir, program.csv, allMods);
+            writeCsvResultFile(program.dir, program.csv, allMods, program.withoutUrl, program.withoutParent);
+        }
+
+        // Write all data to Markdown file
+        if (program.markdown) {
+            writeMarkdownResultFile(program.dir, program.markdown, allMods, program.withoutUrl, program.withoutParent);
         }
 
         process.exit(0); // Should not reach here
