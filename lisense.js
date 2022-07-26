@@ -378,7 +378,7 @@ function tryFallbackLicenseDetection(modPkgJsonPath, paths) {
     return 'UNKNOWN';
 }
 
-function extractLicenses(moduleMap, modules) {
+function extractLicenses(moduleMap, modules, withoutUrls) {
     const log = debug(`app:extractLicenses`);
 
     const modulesWithLicenses = [];
@@ -432,17 +432,20 @@ function extractLicenses(moduleMap, modules) {
                 pkgJson.license = pkgJson.license.type;
             }
 
-            modulesWithLicenses.push({
+            let license = {
                 name: modules[i],
                 license: pkgJson.license || pkgJson.licenses,
-                url: licenseFileUrl,
                 version: pkgJson.version,
                 originalPaths: moduleMap[modules[i]],
-                repoBaseUrl: sourceBase,
-            });
+            };
 
+            if (!withoutUrls) {
+                license.url = licenseFileUrl;
+                license.repoBaseUrl = sourceBase;
+            }
+
+            modulesWithLicenses.push(license);
         }
-
     }
 
     return [
@@ -453,15 +456,21 @@ function extractLicenses(moduleMap, modules) {
 }
 
 
-function writeJsonResultFile(filename, modules) {
-    const reducer = (mod) => ({
-        name: mod.name,
-        version: mod.version,
-        license: mod.license,
-        repoBaseUrl: mod.repoBaseUrl,
-        url: mod.url,
-        parents: mod.parents,
-    });
+function writeJsonResultFile(filename, modules, withoutUrls) {
+    const reducer = (mod) => {
+        const fields = {
+            name: mod.name,
+            version: mod.version,
+            license: mod.license,
+        }
+
+        if (!withoutUrls) {
+            fields.repoBaseUrl = mod.repoBaseUrl;
+            fields.url = mod.url;
+        }
+
+        return fields;
+    };
 
     if (filename === '-') {
         console.log(JSON.stringify(modules.map(reducer), null, 4));
@@ -484,18 +493,20 @@ function getPackageJsonOfTarget(basePath) {
     }
 }
 
-function writeCsvResultFile(basePath, filename, modulesWithLicenses) {
+function writeCsvResultFile(basePath, filename, modulesWithLicenses, withoutUrls, withoutParent) {
     const pkgJson = getPackageJsonOfTarget(basePath);
 
-    let csv = `"module name","version","licenses","repository","licenseUrl","parents"\n`;
+    let csv = `"module name","version","licenses"`;
+    if (!withoutUrls) {
+        csv += `,"repository","licenseUrl"`;
+    }
+    if (!withoutParent) {
+        csv += `,"parents"`;
+    }
+    csv += "\n";
+
     for (let i = 0; i < modulesWithLicenses.length; i++) {
-        const fields = [
-            modulesWithLicenses[i].name,
-            modulesWithLicenses[i].version,
-            modulesWithLicenses[i].license,
-            modulesWithLicenses[i].repoBaseUrl,
-            modulesWithLicenses[i].url,
-        ];
+        let fields = getFieldsFromModuleWithLicense(modulesWithLicenses, i, withoutUrls);
 
         if (modulesWithLicenses[i].parents) {
             if (Array.isArray(modulesWithLicenses[i].parents)) {
@@ -504,10 +515,12 @@ function writeCsvResultFile(basePath, filename, modulesWithLicenses) {
                 fields.push(`${modulesWithLicenses[i].parents}`);
             }
         } else {
-            if (pkgJson && pkgJson.name) {
-                fields.push(pkgJson.name);
-            } else {
-                fields.push('N/A'); // short for: not applicable
+            if (!withoutParent) {
+                if (pkgJson && pkgJson.name) {
+                    fields.push(pkgJson.name);
+                } else {
+                    fields.push('N/A'); // short for: not applicable
+                }
             }
         }
 
@@ -525,20 +538,32 @@ function writeCsvResultFile(basePath, filename, modulesWithLicenses) {
     return true;
 }
 
-function writeMarkdownResultFile(basePath, filename, modulesWithLicenses) {
+function writeMarkdownResultFile(basePath, filename, modulesWithLicenses, withoutUrls, withoutParent) {
     const pkgJson = getPackageJsonOfTarget(basePath);
 
-    let markdown = `| module name | version | licenses | repository | licenseUrl | parents |\n`;
-    markdown += `| --------- | ------- | ------- | ---------- | ---------- | ------- |\n`;
+    let markdown = `| module name | version | licenses |`;
+
+    if (!withoutUrls) {
+        markdown += `repository | licenseUrl |`;
+    }
+    if (!withoutParent) {
+        markdown += `parents |`;
+    }
+
+    markdown += "\n";
+    markdown += `| --- | --- | --- |`;
+
+    if (!withoutUrls) {
+        markdown += `--- | --- |`;
+    }
+    if (!withoutParent) {
+        markdown += `--- |`;
+    }
+
+    markdown += "\n";
 
     for (let i = 0; i < modulesWithLicenses.length; i++) {
-        const fields = [
-            modulesWithLicenses[i].name,
-            modulesWithLicenses[i].version,
-            modulesWithLicenses[i].license,
-            modulesWithLicenses[i].repoBaseUrl,
-            modulesWithLicenses[i].url,
-        ];
+        let fields = getFieldsFromModuleWithLicense(modulesWithLicenses, i, withoutUrls);
 
         if (modulesWithLicenses[i].parents) {
             if (Array.isArray(modulesWithLicenses[i].parents)) {
@@ -547,10 +572,12 @@ function writeMarkdownResultFile(basePath, filename, modulesWithLicenses) {
                 fields.push(`${modulesWithLicenses[i].parents}`);
             }
         } else {
-            if (pkgJson && pkgJson.name) {
-                fields.push(pkgJson.name);
-            } else {
-                fields.push('N/A'); // short for: not applicable
+            if (!withoutParent) {
+                if (pkgJson && pkgJson.name) {
+                    fields.push(pkgJson.name);
+                } else {
+                    fields.push('N/A'); // short for: not applicable
+                }
             }
         }
 
@@ -566,6 +593,21 @@ function writeMarkdownResultFile(basePath, filename, modulesWithLicenses) {
     fs.writeFileSync(filename, markdown);
 
     return true;
+}
+
+function getFieldsFromModuleWithLicense(arr, idx, withoutUrls) {
+    let fields = [
+        arr[idx].name,
+        arr[idx].version,
+        arr[idx].license
+    ];
+
+    if (!withoutUrls) {
+        fields.push(arr[idx].repoBaseUrl);
+        fields.push(arr[idx].url);
+    }
+
+    return fields;
 }
 
 /**
