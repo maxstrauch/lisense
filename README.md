@@ -21,22 +21,25 @@ Besides the graphical output for e.g. CI/CD pipelines you can also export the da
     Usage: lisense [options]
 
     Options:
-    -V, --version                  output the version number
-    -d, --dir <directory>          The directory to use as base directory to start scanning. Use a - for input mode where a list of directories, one per line,
-                                    can be provided using stdin (default: "/Users/maximilianstrauch/Documents/Projekte/lisense")
-    -p, --prod                     Only inspect packages used for prod deployment (no devDependencies) (default: false)
-    -v, --verbose                  Enable verbose program output (default: false)
-    -q, --quiet                    Force quiet mode on stdout (if errors are thrown they are still outputted but they are printed to stderr) (default: false)    
-    -c, --csv <file>               CSV output of results (default: false)
-    -j, --json <file>              JSON output of results (default: false)
-    -f, --fail <license-regex>     Fail with exit code 2 if at least one of the license names matches the given regex (default: null)
-    -r, --report <mode>            Generates a report on stderr with one of the modes: none (default), short, long (default: "none")
-    -l, --licenses                 Print a list of used licenses
-    -z, --fail-on-missing          Fails the application with exit code 3 iff there is at least one node_module which cannot be inspected
-    --pedantic                     Checks at some places if data can be confirmed from an other source (e.g. NPM)
-    -w, --whitelist <file>         JSON file to define a whitelist of allowed licenses and packages (default: false)
-    --create-new-whitelist <file>  Creates an empty, example whitlist file and exits regardless of any other flag (default: false)
-    -h, --help                     output usage information
+        -V, --version                  output the version number
+        -d, --dir <directory>          The directory to use as base directory to start scanning. Use a - for input mode where a list of directories, one per line, can be provided using stdin (default: current directory)
+        -p, --prod                     Only inspect packages used for prod deployment (no devDependencies) (default: false)
+        -u, --without-url              Excludes repository and license url from output (default: false)
+        -t, --without-parent           Excludes the parent information (default: false)
+        -s, --short                    Excludes the urls and parent information from output (default: false)
+        -v, --verbose                  Enable verbose program output (default: false)
+        -q, --quiet                    Force quiet mode on stdout (if errors are thrown they are still outputted but they are printed to stderr) (default: false)
+        -c, --csv <file>               CSV output of results (default: false)
+        -m, --markdown <file>          Markdown output of results (default: false)
+        -j, --json <file>              JSON output of results (default: false)
+        -f, --fail <license-regex>     Fail with exit code 2 if at least one of the license names matches the given regex (default: null)
+        -r, --report <mode>            Generates a report on stderr with one of the modes: none (default), short, long (default: "none")
+        -l, --licenses                 Print a list of used licenses
+        -z, --fail-on-missing          Fails the application with exit code 3 iff there is at least one node_module which cannot be inspected
+        --pedantic                     Checks at some places if data can be confirmed from an other source (e.g. NPM)
+        -w, --whitelist <file>         JSON file to define a whitelist of allowed licenses and packages (default: false)
+        --create-new-whitelist <file>  Creates an empty, example whitlist file and exits regardless of any other flag (default: false)
+        -h, --help                     output usage information
 
 ### Whitelist feature
 
@@ -85,6 +88,7 @@ This is the reason why `lisense` was born
 
 ## 🎒 Contributors
 
+ * [PsclDev](https://github.com/PsclDev)
  * [Sebastyle](https://github.com/Sebastyle)
  * [Stitzinger](https://github.com/stitzinger)
  * [maxstrauch](https://github.com/maxstrauch) (myself, owner)
