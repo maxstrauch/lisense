@@ -73,6 +73,72 @@ This is a very useful feature to lock the used licenses inside the current proje
 
 __*Tip:*__ The commandline switch `--create-new-whitelist` can be used to generate a template.
 
+## 🍱 Parsing functionality
+
+`lisense` tries as hard as possible to provide accurate and clean information on the _version number_, _license of the package_ and _SCM URL_ (e.g. GitHub, GitLab, ...). This is not always possible due to the fact that there is no defined standard on _how_ - for example - to place this information inside the `package.json`. Some modules have no `license` or `repository` fields inside the `package.json` but a custom "format". The file `parser.js` is entirely dedicated to extract the most information out of the available data. The two extensive test files (`parser-license.spec.js` & `parser-scm.spec.js`) try to cover the most important formats and check if the extracted information is correct and as clean of a text string as possible.
+
+For example, `lisense` now recognizes the following values for the field `repository` inside the `package.json`:
+
+
+    github:user/repo/goo.git                                                --> https://github.com/user/repo/goo.git
+    gist:0bce1161cfd2aa91ae7cad9abb42c342                                   --> https://gist.github.com/0bce1161cfd2aa91ae7cad9abb42c342
+    bitbucket:multicoreware/x265_git                                        --> https://bitbucket.org/multicoreware/x265_git/
+    gitlab:gitlab-org/gitlab.git                                            --> https://gitlab.com/gitlab-org/gitlab.git
+    npm/lodash                                                              --> https://www.npmjs.com/package/lodash
+    git@github.com:tsertkov/exec-sh.git                                     --> https://github.com/tsertkov/exec-sh.git
+    git://github.com/isaacs/rimraf.git                                      --> https://github.com/isaacs/rimraf.git
+    git+ssh://github.com/Azure/azure-sdk-for-js.git                         --> https://github.com/Azure/azure-sdk-for-js.git
+    git+ssh://git@github.com/Azure/azure-sdk-for-js.git                     --> https://github.com/Azure/azure-sdk-for-js.git
+    git+https://github.com/facebook/react.git                               --> https://github.com/facebook/react.git
+    github.com/megawac/MutationObserver.js                                  --> https://github.com/megawac/MutationObserver.js
+    https://vadimdez@github.com/VadimDez/ng2-pdf-viewer.git/blob/master/    --> https://github.com/VadimDez/ng2-pdf-viewer.git/blob/master/
+
+
+The following report is a test report for running `npm run test:parsing` and shows e.g. under (2) and (4) the different accepted strings for unclean input:
+
+    1. Handling of field 'license' of the package.json
+        ✔ should handle an object with license-like infos on 'license' (defined as string) (1ms)
+        ✔ should handle a null field 'license' (<1ms)
+        ✔ should handle a missing field 'license' (<1ms)
+        ✔ should handle strings on field 'license' (1ms)
+
+    2. Parses different string types on 'repository' in package.json as per definition
+        ✔ should extract gists, e.g. 'gist:11081aaa281' (<1ms)
+        ✔ should extract bitbucket links, e.g. 'bitbucket:multicoreware/x265_git' (<1ms)
+        ✔ should extract npm packages as repository, e.g. 'npm/lodash' (<1ms)
+        ✔ should extract repos in form of 'github:user/repo' (<1ms)
+        ✔ should extract gitlab repos, e.g. 'gitlab:gitlab-org/gitlab.git' (<1ms)
+
+    3. Parses object types on 'repository' in package.json
+        ✔ should process the object without directory info (<1ms)
+        ✔ should handle URLs with no protocol (object) (<1ms)
+        ✔ should handle empty / missing value / missing field (<1ms)
+        ✔ should process the object without type info (<1ms)
+        ✔ should handle an empty object (<1ms)
+        ✔ should handle non git repository types (<1ms)
+        ✔ should handle strings (<1ms)
+        ✔ should handle URLs with no protocol (string) (<1ms)
+        ✔ should process the object and removes the 'git+' prefixes on repo URLs (<1ms)
+
+    4. Parses different string types on 'repository' in package.json
+        ✔ should extract repos in form of 'git@github.com:user/repo' (<1ms)
+        ✔ should extract repos in form of 'git://github.com/user/repo' (for strings) (<1ms)
+        ✔ should extract repos in form of 'git://github.com/user/repo' (inside 'repository' object) (<1ms)
+        ✔ should extract repos in form of 'git+ssh://github.com/user/repo' (beginning with 'git+ssh://') (<1ms)
+        ✔ should detect GitHub URLs if no other clue is given (<1ms)
+        ✔ should cleanup 'git+' prefixes on repo URLs (<1ms)
+        ✔ should extract username-@-notation from URLs (<1ms)
+        ✔ should extract repos in form of 'git+ssh://git@github.com/user/repo' (beginning with 'git+ssh://' and user in hostname) (<1ms)
+
+    5. Handling of field 'licenses' of the package.json
+        ✔ should handle an array on field 'licenses' (<1ms)
+        ✔ should handle a object on field 'licenses' (should be an array per definition) (<1ms)
+        ✔ should handle the case of a string 'licenses' field (not valid) (<1ms)
+        ✔ should handle the case of a null 'licenses' field (<1ms)
+        ✔ should handle the case of a missing 'licenses' (<1ms)
+
+**Important:** because of all this _inaccuracies_ or _the missing standard_ it might be that the license information for your project, generated by `lisense`, is not a 100% correct - but very close.
+
 ## 📚 History
 
 The problem is fairly simple: for many projects a compilation of all needed licenses is needed. There are different packages out there which will generate such information. Namely the:

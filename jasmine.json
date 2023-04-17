@@ -1,0 +1,12 @@
+{
+  "spec_files": [
+    "parser-license.spec.js",
+    "parser-scm.spec.js"
+  ],
+  "helpers": [ ],
+  "env": {
+    "stopSpecOnExpectationFailure": false,
+    "random": true,
+    "noColor": true
+  }
+}

@@ -4,6 +4,7 @@ const { spawn } = require('child_process');
 const debug = require('debug');
 const chalk = require('chalk');
 const AsciiTable = require('ascii-table');
+const { extractSCMInfo, extractLicenseInfo, combineSubpathWithRepo } = require('./parser');
 
 debug.log = console.info.bind(console);
 
@@ -47,7 +48,6 @@ function getFilesRec(dir, filterFun) {
 }
 
 function system(cmd, args, opts) {
-
     const cmdProc = spawn(cmd, args, {
         ...{
             cwd: process.cwd()
@@ -80,7 +80,6 @@ function system(cmd, args, opts) {
         })
     });
 }
-
 
 function repoFragmentToUrl(fragment) {
     const log = debug('app:repoFragmentToUrl');
@@ -184,7 +183,6 @@ async function getProdPackagesViaNpm(baseDir) {
 
     }
 
-
     const data = await system('npm', ['list', '-prod'], { cwd: baseDir });
 
     const pkgsProd = data.stdout.split('\n').map((ln) => {
@@ -217,7 +215,6 @@ async function getProdPackagesViaNpm(baseDir) {
 
     return [...new Set(pkgsProd)];
 }
-
 
 // ---
 
@@ -314,7 +311,6 @@ function scanNodeModules(baseDir) {
     return [moduleMap, modules];
 }
 
-
 async function filterModulesByProd(baseDir, modules, pedantic) {
     const log = debug('filterModulesByProd');
 
@@ -340,44 +336,6 @@ async function filterModulesByProd(baseDir, modules, pedantic) {
     return tmpSelected;
 }
 
-function detectLicenseFromFile(content) {
-    const log = debug('detectLicenseFromFile');
-    log('File:', content);
-
-    content = content.toLowerCase();
-
-    if (content.indexOf('mit license') > -1) {
-        return 'MIT';
-    } else if (content.indexOf('gpl') > -1) {
-        return 'GPL';
-    } else {
-        // ...
-        // TODO: extend this function
-    }
-
-    return 'UNKNOWN';
-}
-
-function tryFallbackLicenseDetection(modPkgJsonPath, paths) {
-    const log = debug('tryFallbackLicenseDetection');
-
-    log(`Fallback:\n  modPkgJsonPath=${modPkgJsonPath}\n  paths=${JSON.stringify(paths)}`);
-
-    const licenseFile = (paths || []).find((el) => (el.toLowerCase().indexOf('license') > -1));
-    if (licenseFile) {
-        log(`Found license file: ${licenseFile}`);
-
-        try {
-            return detectLicenseFromFile(fs.readFileSync(licenseFile).toString());
-        } catch (ex) {
-            log(`Error: cannot read license file:`, ex);
-        }
-    }
-
-    // TODO: add e.g. search in remote dir etc.
-    return 'UNKNOWN';
-}
-
 function extractLicenses(moduleMap, modules, withoutUrls) {
     const log = debug(`app:extractLicenses`);
 
@@ -397,52 +355,74 @@ function extractLicenses(moduleMap, modules, withoutUrls) {
             continue;
         }
 
-        const sourceBase = repoFragmentToUrl(pkgJson.repository || {});
+        // Extract SCM info
+        let sourceBase = '';
+        const scmInfo = extractSCMInfo(pkgJson)
 
-        let licenseFileUrl = null;
-
-        if (!sourceBase) {
-            log("ERROR: cannot find repo url for: ", pkgJsonPath)
+        if (scmInfo._valid) {
+            sourceBase = scmInfo.url;
         } else {
-            const licenseFilePath = _module.find((p) => (p.toLowerCase().indexOf('license') > -1));
-            const licnseFileName = path.basename(licenseFilePath || '');
-            licenseFileUrl = `${sourceBase}/blob/master/${licnseFileName}`;
+            log("Can't find SCM info for: ", modules[i]);
         }
 
-        if (!pkgJson.license && !pkgJson.licenses) {
-            pkgJson.license = tryFallbackLicenseDetection(pkgJsonPath, _module);
-        }
+        // Extract licenseInfo
+        const modDir = path.dirname(pkgJsonPath);
+        const licenseInfo = extractLicenseInfo(pkgJson, modDir);
 
+        if (licenseInfo._valid) {
+            let url = licenseInfo.licenses.map(l => {
+                if (l._source) {
+                    return combineSubpathWithRepo(scmInfo, l._source);
+                }
 
-        if (!pkgJson.license && !pkgJson.licenses) {
+                if (l.url) {
+                    return l.url;
+                }
 
-            modulesWithoutLicenses.push({
+                const pkgJson = combineSubpathWithRepo(scmInfo, 'package.json');
+                if (pkgJson) {
+                    return pkgJson;
+                }
+
+                return '';
+            }).filter(l => !!l).filter((_, i) => (i == 0)).join(',');
+
+            const license = {
                 name: modules[i],
-                version: pkgJson.version || null,
-                localPath: pkgJsonPath,
-            });
-
-        } else {
-
-            if (pkgJson.licenses && Array.isArray(pkgJson.licenses)) {
-                pkgJson.license = pkgJson.licenses.map((x) => (x.type)).join('+');
-            }
-
-            if ((typeof pkgJson.license) === 'object' && pkgJson.license.type) {
-                pkgJson.license = pkgJson.license.type;
-            }
-
-            let license = {
-                name: modules[i],
-                license: pkgJson.license || pkgJson.licenses,
+                license: licenseInfo.licenses.map(l => {
+                    if (l.type === 'CUSTOM_LICENSE' && l.licenseLine) {
+                        return l.licenseLine;
+                    }
+                    return l.type;
+                }).join('+'),
                 version: pkgJson.version,
                 originalPaths: moduleMap[modules[i]],
+                ...(withoutUrls ? {} : {
+                    url,
+                    repoBaseUrl: sourceBase,
+                })
             };
 
-            if (!withoutUrls) {
-                license.url = licenseFileUrl;
-                license.repoBaseUrl = sourceBase;
-            }
+            modulesWithLicenses.push(license);
+        } else {
+            modulesWithoutLicenses.push({
+                name: modules[i],
+                version: pkgJson.version || 'N/A',
+                localPath: pkgJsonPath,
+                repoBaseUrl: sourceBase,
+            });
+
+
+            const license = {
+                name: modules[i],
+                license: '',
+                version: pkgJson.version || 'N/A',
+                originalPaths: moduleMap[modules[i]],
+                ...(withoutUrls ? {} : {
+                    url: '',
+                    repoBaseUrl: sourceBase,
+                })
+            };
 
             modulesWithLicenses.push(license);
         }
@@ -452,9 +432,7 @@ function extractLicenses(moduleMap, modules, withoutUrls) {
         modulesWithLicenses,
         modulesWithoutLicenses
     ];
-
 }
-
 
 function writeJsonResultFile(filename, modules, withoutUrls) {
     const reducer = (mod) => {
