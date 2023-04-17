@@ -267,17 +267,17 @@ async function main() {
 
         // Write all data to JSON file
         if (program.json) {
-            writeJsonResultFile(program.json, allMods, program.withoutUrl, program.withoutParent);
+            writeJsonResultFile(program.json, allUniqueMods, program.withoutUrl, program.withoutParent);
         }
 
         // Write all data to CSV file
         if (program.csv) {
-            writeCsvResultFile(program.dir, program.csv, allMods, program.withoutUrl, program.withoutParent);
+            writeCsvResultFile(program.dir, program.csv, allUniqueMods, program.withoutUrl, program.withoutParent);
         }
 
         // Write all data to Markdown file
         if (program.markdown) {
-            writeMarkdownResultFile(program.dir, program.markdown, allMods, program.withoutUrl, program.withoutParent);
+            writeMarkdownResultFile(program.dir, program.markdown, allUniqueMods, program.withoutUrl, program.withoutParent);
         }
 
         process.exit(0); // Should not reach here
