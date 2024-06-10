@@ -34,12 +34,12 @@
     "ascii-table": "0.0.9",
     "chalk": "^4.0.0",
     "commander": "^4.1.1",
-    "debug": "^4.3.4",
-    "jasmine": "^4.6.0",
-    "jasmine-console-reporter": "^3.1.0"
+    "debug": "^4.3.4"
   },
   "devDependencies": {
     "jest": "^29.5.0",
-    "mock-fs": "^5.2.0"
+    "mock-fs": "^5.2.0",
+    "jasmine": "^4.6.0",
+    "jasmine-console-reporter": "^3.1.0"
   }
 }

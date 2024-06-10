@@ -183,7 +183,7 @@ async function getProdPackagesViaNpm(baseDir) {
 
     }
 
-    const data = await system('npm', ['list', '-prod'], { cwd: baseDir });
+    const data = await system('npm', ['list', '--omit=dev', '--all'], { cwd: baseDir });
 
     const pkgsProd = data.stdout.split('\n').map((ln) => {
         ln = ln.trim();

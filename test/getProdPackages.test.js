@@ -9,16 +9,16 @@ describe('function getProdPackages', () => {
         const pkgs = await getProdPackages(BASE_DIR, false);
 
         expect(pkgs).toStrictEqual([
-            "chalk",
-            "commander",
-            "debug",
-            "ms",
-            "ansi-styles",
-            "supports-color",
-            "has-flag",
-            "@types/color-name",
-            "color-convert",
-            "color-name"
+            'ascii-table',
+            'chalk',
+            'commander',
+            'debug',
+            'ms',
+            'ansi-styles',
+            'supports-color',
+            'has-flag',
+            'color-convert',
+            'color-name'
         ]);
     });
 
@@ -27,16 +27,16 @@ describe('function getProdPackages', () => {
         const pkgs = await getProdPackages(BASE_DIR, true);
 
         expect(pkgs).toStrictEqual([
-            "chalk",
-            "commander",
-            "debug",
-            "ms",
-            "ansi-styles",
-            "supports-color",
-            "has-flag",
-            "@types/color-name",
-            "color-convert",
-            "color-name"
+            'ascii-table',
+            'chalk',
+            'commander',
+            'debug',
+            'ms',
+            'ansi-styles',
+            'supports-color',
+            'has-flag',
+            'color-convert',
+            'color-name'
         ]);
     });
 
