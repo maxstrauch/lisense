@@ -46,6 +46,7 @@ const GIT_REF_STR_MATCHER = new RegExp('(.*?)@(.*?):(.*?)\\/(.*?)$', 'im');
 const CUSTOM_COPYRIGHT_MATCHER = new RegExp('^copyright.*?\\(?c?\\)?.*?[0-9]?.*?$', 'i');
 const README_MD_LICENSE_HEADING = new RegExp('^#*.*?licen[s|c]e$', 'i');
 const URL_USER_IN_HOSTNAME_MATCHER = new RegExp('://.*?@(.*?)/', 'i');
+const GITHUB_REPO_SHORT_REGEX_MATCHER = new RegExp('^[^\/]+\/[^\/]+$', 'i')
 
 const SCM_INFO_PARSERS = [
   // GitHub ref: 'github:user/repo'
@@ -198,17 +199,33 @@ const SCM_INFO_PARSERS = [
 
   {
     canApply: (str) => {
+      return !!str.match(GITHUB_REPO_SHORT_REGEX_MATCHER);
+    },
+    apply: (str) => {
+      return {
+        _valid: true,
+        type: 'git',
+        directory: '',
+        url: `https://github.com/${str}`,
+      };
+    }
+  },
+
+  {
+    canApply: (str) => {
       // Either invalid string or already with a protocol prefix
       if (!str || str.startsWith('http')) {
         return false;
       }
 
+      // Is it parseable?
       try {
         new URL(`http://${(str || '').trim()}`)
-        return true;
       } catch (ex) {
         return false;
       }
+
+      return true;
     },
     apply: (str) => {
       // We don't know if the target server supports https, so to be sure, we provide

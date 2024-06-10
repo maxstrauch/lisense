@@ -98,6 +98,24 @@ describe(`Parses different string types on 'repository' in package.json as per d
     );    
   });
   
+  it(`should have a fallback for implicit GitHub repos as it is the defacto standard (or seems to be), e.g. 'chalk/supports-color'`, () => {
+    expect(
+      extractSCMInfo(
+        {
+          // ...
+          "repository": "chalk/supports-color",
+          // ...
+        }
+      )
+    ).toEqual(
+      {
+        _valid: true,
+        type: 'git',
+        directory: '',
+        url: 'https://github.com/chalk/supports-color',
+      }
+    );    
+  });
 });
 
 
